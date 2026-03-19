@@ -132,14 +132,14 @@
             </div>
 
             <div class="form-group">
-                <label for="sqlTemplate"
-                    >带?的SQL模板（INSERT/SELECT/UPDATE）</label
-                >
+                <label for="sqlTemplate">
+                    带?和参数列表的SQL模板（INSERT/SELECT/UPDATE）
+                </label>
                 <textarea
                     id="sqlTemplate"
-                    placeholder="示例1(SELECT)：SELECT id, name FROM user WHERE id IN (?, ?) AND status = ?;
-示例2(UPDATE)：UPDATE user SET name = ?, ext = ? WHERE id = ?;
-示例3(INSERT)：INSERT INTO user (id, deptName, json_data) VALUES (?, ?, ?);"
+                    placeholder="示例1(SELECT)：SELECT id, name FROM user WHERE id IN (?, ?) AND status = ?,执行参数：xxx(String)，xxx(String)
+示例2(UPDATE)：UPDATE user SET name = ?, ext = ? WHERE id = ?,执行参数：xxx(String)，xxx(String)，xxx(String)
+示例3(INSERT)：INSERT INTO user (id, deptName, json_data) VALUES (?, ?, ?),执行参数：xxx(String)，xxx(String)，xxx(String)"
                 ></textarea>
             </div>
 
@@ -154,7 +154,7 @@
                     class="copy-btn"
                     onclick="copyToClipboard('formattedSql', 'copySuccess1')"
                 >
-                    一键复制（备用）
+                    复制
                 </button>
                 <div class="copy-success" id="copySuccess1">
                     ✅ 复制成功！内容已粘贴到剪贴板
@@ -170,7 +170,7 @@
                     class="copy-btn"
                     onclick="copyToClipboard('updateSql', 'copySuccess2')"
                 >
-                    一键复制（备用）
+                    复制
                 </button>
                 <div class="copy-success" id="copySuccess2">
                     ✅ 复制成功！内容已粘贴到剪贴板
