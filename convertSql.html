@@ -3,7 +3,7 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>SQL 占位符替换工具 - 保留参数空格版</title>
+        <title>SQL 占位符替换工具 - 完整保留参数空格</title>
         <style>
             * {
                 margin: 0;
@@ -99,14 +99,6 @@
                 background-color: #d4edda;
                 border-left: 4px solid #28a745;
             }
-            .param-tip {
-                color: #fd7e14;
-                font-weight: 600;
-                margin: 10px 0;
-                padding: 8px;
-                background-color: #fff3cd;
-                border-radius: 4px;
-            }
             .sql-type-tip {
                 color: #20c997;
                 font-weight: 600;
@@ -131,28 +123,6 @@
                     transform: translateY(0);
                 }
             }
-            .toast-message {
-                position: fixed;
-                top: 20px;
-                left: 50%;
-                transform: translateX(-50%);
-                z-index: 9999;
-                min-width: 280px;
-                max-width: 500px;
-                text-align: center;
-                pointer-events: none;
-                animation: slideDown 0.3s ease;
-            }
-            @keyframes slideDown {
-                from {
-                    opacity: 0;
-                    top: 0;
-                }
-                to {
-                    opacity: 1;
-                    top: 20px;
-                }
-            }
         </style>
     </head>
     <body>
@@ -168,8 +138,10 @@
                 3. INSERT语句：替换占位符并生成UPDATE语句。<br />
                 ⚡ 参数列表使用 <strong>", 执行参数："</strong> 分隔，每个参数用
                 <strong>", "</strong> 分隔。<br />
-                💡 若字符串值需保留前后空格，请用双引号或单引号包裹，如
-                <code>" abc "(String)</code>。
+                💡
+                <strong
+                    >若需保留参数值的前后空格，请确保值本身包含空格，无需引号；工具会完整保留括号前的所有字符（包括空格）。</strong
+                >
             </div>
 
             <div class="form-group">
@@ -214,11 +186,9 @@
         </div>
 
         <script>
-            // ---------- 全局自动消失定时器管理 ----------
             let successTimeout = null;
             let errorTimeout = null;
 
-            // 显示成功消息 (自动消失)
             function showSuccessMessage(message) {
                 const successDiv = document.getElementById("successMsg");
                 if (successTimeout) clearTimeout(successTimeout);
@@ -232,7 +202,6 @@
                 }, 3000);
             }
 
-            // 显示错误消息 (自动消失)
             function showErrorMessage(message) {
                 const errorDiv = document.getElementById("errorMsg");
                 if (errorTimeout) clearTimeout(errorTimeout);
@@ -246,16 +215,6 @@
                 }, 3500);
             }
 
-            function showError(msg) {
-                console.warn("错误:", msg);
-                showErrorMessage(msg);
-            }
-
-            function showSuccess(msg) {
-                showSuccessMessage(msg);
-            }
-
-            // 自动复制核心
             function autoCopy(targetId) {
                 const textarea = document.getElementById(targetId);
                 if (!textarea.value.trim()) {
@@ -290,7 +249,6 @@
                 }
             }
 
-            // 手动复制
             function copyToClipboard(targetId, tipId) {
                 const textarea = document.getElementById(targetId);
                 const tip = document.getElementById(tipId);
@@ -318,7 +276,6 @@
                 }
             }
 
-            // ---------- 核心转换逻辑 ----------
             function convertSql() {
                 if (successTimeout) clearTimeout(successTimeout);
                 if (errorTimeout) clearTimeout(errorTimeout);
@@ -447,7 +404,6 @@
                 }
             }
 
-            // ---------- 工具函数 ----------
             function replacePlaceholders(sql, paramItems) {
                 let idx = 0;
                 return sql.replace(/\?/g, () => {
@@ -532,41 +488,84 @@
                 return params.map((p) => extractParamAndType(p));
             }
 
-            // 提取参数值和类型，**不再trim值部分，保留原始空格**
+            // 改进版：提取参数值和类型，精确保留引号内的首尾空格，且无引号时保留括号前的所有字符（包括空格）
             function extractParamAndType(param) {
-                const typeMatch = param.match(/^(.*?)\s*\((\w+)\)\s*$/);
-                if (typeMatch) {
-                    let value = typeMatch[1]; // 保留原始值，包括前后空格
-                    const type = typeMatch[2].trim();
-                    // 如果值被引号包围，则去掉引号并处理转义
+                // 先尝试匹配类型括号，使用 lastIndexOf 避免正则消耗末尾空格
+                const lastParenOpen = param.lastIndexOf("(");
+                const lastParenClose = param.lastIndexOf(")");
+                let type = null;
+                let value = param;
+
+                if (lastParenOpen !== -1 && lastParenClose > lastParenOpen) {
+                    type = param
+                        .substring(lastParenOpen + 1, lastParenClose)
+                        .trim();
+                    value = param.substring(0, lastParenOpen);
+
+                    // 检查值是否被引号包裹（允许前后有空白）
+                    let trimmedValue = value.trim();
                     if (
-                        (value.startsWith('"') && value.endsWith('"')) ||
-                        (value.startsWith("'") && value.endsWith("'"))
+                        (trimmedValue.startsWith('"') &&
+                            trimmedValue.endsWith('"')) ||
+                        (trimmedValue.startsWith("'") &&
+                            trimmedValue.endsWith("'"))
                     ) {
-                        const quote = value[0];
-                        value = value
-                            .slice(1, -1)
-                            .replace(new RegExp(`\\\\${quote}`, "g"), quote);
+                        // 有引号：提取引号内内容（保留内部所有空格）
+                        const quote = trimmedValue[0];
+                        // 找到值中第一个引号和最后一个引号之间的内容
+                        const firstQuoteIdx = value.indexOf(quote);
+                        const lastQuoteIdx = value.lastIndexOf(quote);
+                        if (
+                            firstQuoteIdx !== -1 &&
+                            lastQuoteIdx > firstQuoteIdx
+                        ) {
+                            value = value.substring(
+                                firstQuoteIdx + 1,
+                                lastQuoteIdx,
+                            );
+                        } else {
+                            // 降级：直接去掉首尾引号
+                            value = trimmedValue.slice(1, -1);
+                        }
+                    } else {
+                        // 无引号：保留括号前的所有字符（包括前后空格），不做任何 trim
+                        // 直接使用 value，不做修改
                     }
-                    return { value, type };
+                } else {
+                    // 没有类型括号，直接处理值
+                    let trimmedValue = value.trim();
+                    if (
+                        (trimmedValue.startsWith('"') &&
+                            trimmedValue.endsWith('"')) ||
+                        (trimmedValue.startsWith("'") &&
+                            trimmedValue.endsWith("'"))
+                    ) {
+                        const quote = trimmedValue[0];
+                        const firstQuoteIdx = value.indexOf(quote);
+                        const lastQuoteIdx = value.lastIndexOf(quote);
+                        if (
+                            firstQuoteIdx !== -1 &&
+                            lastQuoteIdx > firstQuoteIdx
+                        ) {
+                            value = value.substring(
+                                firstQuoteIdx + 1,
+                                lastQuoteIdx,
+                            );
+                        } else {
+                            value = trimmedValue.slice(1, -1);
+                        }
+                    } else {
+                        // 无引号无类型，保留原值（包括空格），不做任何 trim
+                    }
                 }
-                let value = param; // 保留原始值，包括前后空格
-                if (
-                    (value.startsWith('"') && value.endsWith('"')) ||
-                    (value.startsWith("'") && value.endsWith("'"))
-                ) {
-                    const quote = value[0];
-                    value = value
-                        .slice(1, -1)
-                        .replace(new RegExp(`\\\\${quote}`, "g"), quote);
-                }
-                return { value, type: "Auto" };
+
+                return { value, type: type || "Auto" };
             }
 
             function formatParamByType(value, type) {
-                // 注意：value 可能包含前后空格
+                // 处理 null
                 if (value.trim().toLowerCase() === "null") return "null";
-                if (type === "String") return `'${value}'`; // 直接使用原始值，包括空格
+                if (type === "String") return `'${value}'`; // 直接使用原始值，保留空格
                 if (
                     type === "Integer" ||
                     type === "Long" ||
@@ -583,12 +582,12 @@
                         );
                     return trimmed;
                 }
-                // Auto类型：若看起来像数字则不加引号，否则加引号（保留原始空格）
+                // Auto 类型：若看起来像数字则不加引号，否则加引号（保留原始空格）
                 if (/^-?\d+(\.\d+)?$/.test(value.trim())) return value.trim();
                 return `'${value}'`;
             }
 
-            // 其他辅助函数（保持不变）
+            // 其他辅助函数保持不变
             function parseInsertSql(sql) {
                 const lowerSql = sql
                     .toLowerCase()
