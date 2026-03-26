@@ -3,7 +3,7 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>SQL 占位符替换工具 - 自动消失提示版</title>
+        <title>SQL 占位符替换工具 - 保留参数空格版</title>
         <style>
             * {
                 margin: 0;
@@ -131,7 +131,6 @@
                     transform: translateY(0);
                 }
             }
-            /* 临时悬浮提示更优雅 */
             .toast-message {
                 position: fixed;
                 top: 20px;
@@ -158,7 +157,7 @@
     </head>
     <body>
         <div class="container">
-            <h1>SQL 占位符替换工具 ✨ 自动复制+智能提示</h1>
+            <h1>SQL 占位符替换工具 ✨ 保留参数原始空格</h1>
             <div class="error" id="errorMsg"></div>
             <div class="success" id="successMsg"></div>
 
@@ -167,8 +166,10 @@
                 1. SELECT语句：仅替换占位符生成完整查询语句；<br />
                 2. UPDATE语句：仅替换占位符生成完整更新语句；<br />
                 3. INSERT语句：替换占位符并生成UPDATE语句。<br />
-                ⚡
-                点击按钮后自动复制SQL（SELECT/UPDATE自动复制主SQL，INSERT自动复制INSERT语句），提示框3秒后自动消失。
+                ⚡ 参数列表使用 <strong>", 执行参数："</strong> 分隔，每个参数用
+                <strong>", "</strong> 分隔。<br />
+                💡 若字符串值需保留前后空格，请用双引号或单引号包裹，如
+                <code>" abc "(String)</code>。
             </div>
 
             <div class="form-group">
@@ -221,7 +222,6 @@
             function showSuccessMessage(message) {
                 const successDiv = document.getElementById("successMsg");
                 if (successTimeout) clearTimeout(successTimeout);
-                // 隐藏错误区域避免重叠
                 document.getElementById("errorMsg").style.display = "none";
                 if (errorTimeout) clearTimeout(errorTimeout);
                 successDiv.innerText = message;
@@ -236,7 +236,6 @@
             function showErrorMessage(message) {
                 const errorDiv = document.getElementById("errorMsg");
                 if (errorTimeout) clearTimeout(errorTimeout);
-                // 隐藏成功区域
                 document.getElementById("successMsg").style.display = "none";
                 if (successTimeout) clearTimeout(successTimeout);
                 errorDiv.innerText = message;
@@ -247,7 +246,6 @@
                 }, 3500);
             }
 
-            // 兼容旧调用 (替换所有alert弹窗)
             function showError(msg) {
                 console.warn("错误:", msg);
                 showErrorMessage(msg);
@@ -257,7 +255,7 @@
                 showSuccessMessage(msg);
             }
 
-            // 自动复制核心 (返回 {success, message})
+            // 自动复制核心
             function autoCopy(targetId) {
                 const textarea = document.getElementById(targetId);
                 if (!textarea.value.trim()) {
@@ -292,7 +290,7 @@
                 }
             }
 
-            // 手动复制 (保留原有交互，但错误提示走新方案)
+            // 手动复制
             function copyToClipboard(targetId, tipId) {
                 const textarea = document.getElementById(targetId);
                 const tip = document.getElementById(tipId);
@@ -322,7 +320,6 @@
 
             // ---------- 核心转换逻辑 ----------
             function convertSql() {
-                // 清空旧提示和输出区
                 if (successTimeout) clearTimeout(successTimeout);
                 if (errorTimeout) clearTimeout(errorTimeout);
                 document.getElementById("errorMsg").style.display = "none";
@@ -364,9 +361,6 @@
                     const paramItems = parseParamsWithType(paramInput);
                     const placeholderCount = (rawSql.match(/\?/g) || []).length;
 
-                    console.log(
-                        `占位符数量: ${placeholderCount}, 参数数量: ${paramItems.length}`,
-                    );
                     if (paramItems.length !== placeholderCount) {
                         showErrorMessage(
                             `参数数量不匹配！SQL中有 ${placeholderCount} 个?，但输入了 ${paramItems.length} 个参数`,
@@ -374,7 +368,6 @@
                         return;
                     }
 
-                    // 根据SQL类型分发处理
                     if (sqlType === "SELECT" || sqlType === "UPDATE") {
                         const formattedSql = replacePlaceholders(
                             rawSql,
@@ -382,22 +375,12 @@
                         );
                         document.getElementById("formattedSql").value =
                             formattedSql;
-                        // 自动复制主SQL
                         const copyResult = autoCopy("formattedSql");
-                        let finalMsg = `${sqlType} 语句处理成功！\n`;
-                        if (copyResult.success) {
-                            finalMsg += copyResult.message;
-                        } else {
-                            finalMsg += copyResult.message;
-                        }
-                        // 根据复制结果决定展示成功/错误样式（但SQL本身处理成功）
-                        if (copyResult.success) {
-                            showSuccessMessage(finalMsg);
-                        } else {
-                            showErrorMessage(finalMsg);
-                        }
+                        let finalMsg = `${sqlType} 语句处理成功！\n${copyResult.message}`;
+                        copyResult.success
+                            ? showSuccessMessage(finalMsg)
+                            : showErrorMessage(finalMsg);
                     } else if (sqlType === "INSERT") {
-                        // 解析INSERT语句
                         const sqlParseResult = parseInsertSql(rawSql);
                         if (
                             sqlParseResult.placeholderIndexes.length !==
@@ -424,7 +407,6 @@
                             }
                         });
 
-                        // 生成完整INSERT
                         const formattedInsert = generateInsertWithValues(
                             sqlParseResult.tableName,
                             valueMap,
@@ -432,7 +414,6 @@
                         document.getElementById("formattedSql").value =
                             formattedInsert;
 
-                        // 查找主键id
                         const primaryKey = Object.keys(valueMap).find(
                             (col) => col.toLowerCase() === "id",
                         );
@@ -454,20 +435,11 @@
                             "updateSqlGroup",
                         ).style.display = "block";
 
-                        // 自动复制 INSERT 语句
                         const copyResult = autoCopy("formattedSql");
-                        let finalMsg = `✨ INSERT语句处理成功！\n已生成完整INSERT和UPDATE语句（UPDATE条件：${primaryKey}=${idValue}）\n`;
-                        if (copyResult.success) {
-                            finalMsg += `${copyResult.message}\n📄 UPDATE语句已生成，可手动复制。`;
-                        } else {
-                            finalMsg += `${copyResult.message}\n📄 UPDATE语句已生成，请手动复制。`;
-                        }
-
-                        if (copyResult.success) {
-                            showSuccessMessage(finalMsg);
-                        } else {
-                            showErrorMessage(finalMsg);
-                        }
+                        let finalMsg = `✨ INSERT语句处理成功！\n已生成完整INSERT和UPDATE语句（UPDATE条件：${primaryKey}=${idValue}）\n${copyResult.message}\n📄 UPDATE语句已生成，可手动复制。`;
+                        copyResult.success
+                            ? showSuccessMessage(finalMsg)
+                            : showErrorMessage(finalMsg);
                     }
                 } catch (e) {
                     showErrorMessage(`处理失败：${e.message}`);
@@ -485,145 +457,138 @@
                 });
             }
 
-            // 参数解析 (智能合并嵌套结构)
+            // 参数解析：使用 ", " 分隔，保留原始空格
             function parseParamsWithType(paramStr) {
-                const cleanStr = paramStr
-                    .replace(/[\t\n\r]/g, " ")
-                    .replace(/，/g, ",")
-                    .replace(/\s+/g, " ")
-                    .trim();
-                if (!cleanStr) return [];
+                if (!paramStr || !paramStr.trim()) return [];
 
-                let roughParts = cleanStr.split(",");
-                const mergedParams = [];
-                let currentMerge = "";
-                let state = {
-                    inDoubleQuote: false,
-                    inSingleQuote: false,
-                    braceLevel: 0,
-                    bracketLevel: 0,
-                    parenthesisLevel: 0,
-                };
+                let str = paramStr.replace(/，/g, ",");
+                const params = [];
+                let start = 0;
+                let i = 0;
+                let inDoubleQuote = false;
+                let inSingleQuote = false;
+                let braceLevel = 0,
+                    bracketLevel = 0,
+                    parenthesisLevel = 0;
 
-                roughParts.forEach((part, index) => {
-                    const trimPart = part.trim();
-                    if (trimPart === "") return;
-                    currentMerge += (currentMerge ? "," : "") + trimPart;
+                while (i < str.length) {
+                    const c = str[i];
+                    const prevC = i > 0 ? str[i - 1] : "";
 
-                    for (let i = 0; i < trimPart.length; i++) {
-                        const c = trimPart.charAt(i);
-                        const prevC = i > 0 ? trimPart.charAt(i - 1) : "";
-                        if (prevC === "\\") continue;
-                        if (c === '"' && !state.inSingleQuote)
-                            state.inDoubleQuote = !state.inDoubleQuote;
-                        else if (c === "'" && !state.inDoubleQuote)
-                            state.inSingleQuote = !state.inSingleQuote;
+                    if (prevC === "\\") {
+                        i++;
+                        continue;
+                    }
 
-                        if (!state.inDoubleQuote && !state.inSingleQuote) {
-                            if (c === "{") state.braceLevel++;
-                            if (c === "}")
-                                state.braceLevel = Math.max(
-                                    0,
-                                    state.braceLevel - 1,
-                                );
-                            if (c === "[") state.bracketLevel++;
-                            if (c === "]")
-                                state.bracketLevel = Math.max(
-                                    0,
-                                    state.bracketLevel - 1,
-                                );
-                            if (c === "(") state.parenthesisLevel++;
-                            if (c === ")")
-                                state.parenthesisLevel = Math.max(
-                                    0,
-                                    state.parenthesisLevel - 1,
-                                );
+                    if (c === '"' && !inSingleQuote)
+                        inDoubleQuote = !inDoubleQuote;
+                    else if (c === "'" && !inDoubleQuote)
+                        inSingleQuote = !inSingleQuote;
+
+                    if (!inDoubleQuote && !inSingleQuote) {
+                        if (c === "{") braceLevel++;
+                        if (c === "}") braceLevel = Math.max(0, braceLevel - 1);
+                        if (c === "[") bracketLevel++;
+                        if (c === "]")
+                            bracketLevel = Math.max(0, bracketLevel - 1);
+                        if (c === "(") parenthesisLevel++;
+                        if (c === ")")
+                            parenthesisLevel = Math.max(
+                                0,
+                                parenthesisLevel - 1,
+                            );
+
+                        if (
+                            c === "," &&
+                            i + 1 < str.length &&
+                            str[i + 1] === " "
+                        ) {
+                            if (
+                                braceLevel === 0 &&
+                                bracketLevel === 0 &&
+                                parenthesisLevel === 0
+                            ) {
+                                let param = str.substring(start, i);
+                                if (param.trim() !== "") params.push(param);
+                                start = i + 2;
+                                i += 2;
+                                continue;
+                            }
                         }
                     }
+                    i++;
+                }
+                let lastParam = str.substring(start);
+                if (lastParam.trim() !== "") params.push(lastParam);
 
-                    const isComplete =
-                        !state.inDoubleQuote &&
-                        !state.inSingleQuote &&
-                        state.braceLevel === 0 &&
-                        state.bracketLevel === 0 &&
-                        state.parenthesisLevel === 0 &&
-                        (trimPart.includes("(") ||
-                            trimPart.toLowerCase() === "null" ||
-                            trimPart.includes("{") ||
-                            trimPart.includes("["));
-                    const isLast = index === roughParts.length - 1;
-
-                    if (isComplete || isLast) {
-                        if (currentMerge.trim() !== "")
-                            mergedParams.push(currentMerge.trim());
-                        currentMerge = "";
-                        state = {
-                            inDoubleQuote: false,
-                            inSingleQuote: false,
-                            braceLevel: 0,
-                            bracketLevel: 0,
-                            parenthesisLevel: 0,
-                        };
-                    }
-                });
-
-                return mergedParams.map((p) => extractParamAndType(p));
+                // 兼容旧格式
+                if (params.length === 0 && str.includes(",")) {
+                    return str
+                        .split(",")
+                        .map((p) => p.trim())
+                        .filter((p) => p)
+                        .map((p) => extractParamAndType(p));
+                }
+                return params.map((p) => extractParamAndType(p));
             }
 
+            // 提取参数值和类型，**不再trim值部分，保留原始空格**
             function extractParamAndType(param) {
                 const typeMatch = param.match(/^(.*?)\s*\((\w+)\)\s*$/);
                 if (typeMatch) {
-                    let value = typeMatch[1].trim();
+                    let value = typeMatch[1]; // 保留原始值，包括前后空格
                     const type = typeMatch[2].trim();
-                    if (value.startsWith('"') && value.endsWith('"'))
-                        value = value.slice(1, -1).replace(/\\"/g, '"');
-                    if (value.startsWith("'") && value.endsWith("'"))
-                        value = value.slice(1, -1).replace(/\\'/g, "'");
+                    // 如果值被引号包围，则去掉引号并处理转义
+                    if (
+                        (value.startsWith('"') && value.endsWith('"')) ||
+                        (value.startsWith("'") && value.endsWith("'"))
+                    ) {
+                        const quote = value[0];
+                        value = value
+                            .slice(1, -1)
+                            .replace(new RegExp(`\\\\${quote}`, "g"), quote);
+                    }
                     return { value, type };
                 }
-                let value = param.trim();
-                if (value.startsWith('"') && value.endsWith('"'))
-                    value = value.slice(1, -1).replace(/\\"/g, '"');
-                if (value.startsWith("'") && value.endsWith("'"))
-                    value = value.slice(1, -1).replace(/\\'/g, "'");
+                let value = param; // 保留原始值，包括前后空格
+                if (
+                    (value.startsWith('"') && value.endsWith('"')) ||
+                    (value.startsWith("'") && value.endsWith("'"))
+                ) {
+                    const quote = value[0];
+                    value = value
+                        .slice(1, -1)
+                        .replace(new RegExp(`\\\\${quote}`, "g"), quote);
+                }
                 return { value, type: "Auto" };
             }
 
             function formatParamByType(value, type) {
-                const trimmed = value.trim();
-                if (trimmed.toLowerCase() === "null") return "null";
-                if (type === "String") return `'${trimmed}'`;
+                // 注意：value 可能包含前后空格
+                if (value.trim().toLowerCase() === "null") return "null";
+                if (type === "String") return `'${value}'`; // 直接使用原始值，包括空格
                 if (
                     type === "Integer" ||
                     type === "Long" ||
                     type === "Number"
                 ) {
+                    const trimmed = value.trim();
                     const regex =
                         type === "Integer" || type === "Long"
                             ? /^-?\d+$/
                             : /^-?\d+(\.\d+)?$/;
                     if (!regex.test(trimmed))
                         throw new Error(
-                            `参数值「${trimmed}」标注为${type}类型，但不是有效数字`,
+                            `参数值「${value}」标注为${type}类型，但不是有效数字`,
                         );
                     return trimmed;
                 }
-                // Auto类型
-                if (/^-?\d+(\.\d+)?$/.test(trimmed)) return trimmed;
-                return `'${trimmed}'`;
+                // Auto类型：若看起来像数字则不加引号，否则加引号（保留原始空格）
+                if (/^-?\d+(\.\d+)?$/.test(value.trim())) return value.trim();
+                return `'${value}'`;
             }
 
-            // 格式化缩进 (保留原有美观)
-            function formatSql(sql) {
-                return sql
-                    .replace(/\s+SET\s+/i, "\nSET ")
-                    .replace(/\s+WHERE\s+/i, "\nWHERE ")
-                    .replace(/\s+AND\s+/i, "\n  AND ")
-                    .replace(/\s+OR\s+/i, "\n  OR ")
-                    .replace(/\s+IN\s*\(/i, "\n  IN (");
-            }
-
-            // 解析INSERT (返回placeholderIndexes)
+            // 其他辅助函数（保持不变）
             function parseInsertSql(sql) {
                 const lowerSql = sql
                     .toLowerCase()
@@ -632,20 +597,13 @@
                 const tableMatch = lowerSql.match(
                     /insert into\s+(\w+)\s*(?:as\s*\w+)?/,
                 );
-                if (!tableMatch)
-                    throw new Error(
-                        "无法识别INSERT语句的表名，请检查SQL格式（支持表别名）",
-                    );
+                if (!tableMatch) throw new Error("无法识别INSERT语句的表名");
                 const tableName = tableMatch[1];
-
                 const rawContentMatch = sql.match(
                     /\(([\s\S]*?)\)\s*values\s*\(([\s\S]*?)\)/i,
                 );
                 if (!rawContentMatch)
-                    throw new Error(
-                        "无法识别INSERT语句的字段和VALUES列表，请检查格式",
-                    );
-
+                    throw new Error("无法识别INSERT语句的字段和VALUES列表");
                 const columnsStr = rawContentMatch[1]
                     .replace(/\n/g, "")
                     .replace(/\s+/g, " ")
@@ -656,17 +614,14 @@
                     .replace(/\s+/g, " ")
                     .trim();
                 const values = parseSqlItems(valuesStr, "VALUES项");
-
                 if (columns.length !== values.length)
                     throw new Error(
                         `字段数量(${columns.length})和VALUES项数量(${values.length})不匹配`,
                     );
-
                 const placeholderIndexes = [];
                 values.forEach((item, idx) => {
                     if (item.trim() === "?") placeholderIndexes.push(idx);
                 });
-
                 return { tableName, columns, values, placeholderIndexes };
             }
 
