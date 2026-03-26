@@ -3,7 +3,7 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>SQL 占位符替换工具-V1.0.2</title>
+        <title>SQL 占位符替换工具 - 自动消失提示版</title>
         <style>
             * {
                 margin: 0;
@@ -22,6 +22,7 @@
                 padding: 25px;
                 border-radius: 8px;
                 box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+                position: relative;
             }
             h1 {
                 text-align: center;
@@ -78,27 +79,25 @@
             .output-group {
                 margin-top: 30px;
             }
-            .error {
-                color: #dc3545;
+            .error,
+            .success {
                 margin: 10px 0;
-                padding: 10px;
-                background-color: #f8d7da;
+                padding: 12px 15px;
                 border-radius: 4px;
                 display: none;
+                animation: fadeIn 0.3s ease;
+                font-size: 14px;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            }
+            .error {
+                color: #721c24;
+                background-color: #f8d7da;
+                border-left: 4px solid #dc3545;
             }
             .success {
                 color: #155724;
-                margin: 10px 0;
-                padding: 10px;
                 background-color: #d4edda;
-                border-radius: 4px;
-                display: none;
-            }
-            .copy-success {
-                color: #28a745;
-                margin: 8px 0;
-                font-size: 14px;
-                display: none;
+                border-left: 4px solid #28a745;
             }
             .param-tip {
                 color: #fd7e14;
@@ -116,11 +115,50 @@
                 background-color: #e6fffa;
                 border-radius: 4px;
             }
+            .copy-success {
+                color: #28a745;
+                margin: 8px 0;
+                font-size: 14px;
+                display: none;
+            }
+            @keyframes fadeIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(-8px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+            /* 临时悬浮提示更优雅 */
+            .toast-message {
+                position: fixed;
+                top: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                z-index: 9999;
+                min-width: 280px;
+                max-width: 500px;
+                text-align: center;
+                pointer-events: none;
+                animation: slideDown 0.3s ease;
+            }
+            @keyframes slideDown {
+                from {
+                    opacity: 0;
+                    top: 0;
+                }
+                to {
+                    opacity: 1;
+                    top: 20px;
+                }
+            }
         </style>
     </head>
     <body>
         <div class="container">
-            <h1>SQL 占位符替换工具</h1>
+            <h1>SQL 占位符替换工具 ✨ 自动复制+智能提示</h1>
             <div class="error" id="errorMsg"></div>
             <div class="success" id="successMsg"></div>
 
@@ -128,7 +166,9 @@
                 📌 支持三种SQL类型：<br />
                 1. SELECT语句：仅替换占位符生成完整查询语句；<br />
                 2. UPDATE语句：仅替换占位符生成完整更新语句；<br />
-                3. INSERT语句：替换占位符并生成UPDATE语句。
+                3. INSERT语句：替换占位符并生成UPDATE语句。<br />
+                ⚡
+                点击按钮后自动复制SQL（SELECT/UPDATE自动复制主SQL，INSERT自动复制INSERT语句），提示框3秒后自动消失。
             </div>
 
             <div class="form-group">
@@ -143,9 +183,7 @@
                 ></textarea>
             </div>
 
-            <button onclick="convertSql()">
-                替换占位符（SELECT/UPDATE仅替换/INSERT生成UPDATE）
-            </button>
+            <button onclick="convertSql()">🚀 替换占位符</button>
 
             <div class="output-group">
                 <label for="formattedSql">替换后的完整SQL语句</label>
@@ -154,11 +192,9 @@
                     class="copy-btn"
                     onclick="copyToClipboard('formattedSql', 'copySuccess1')"
                 >
-                    复制
+                    📋 手动复制
                 </button>
-                <div class="copy-success" id="copySuccess1">
-                    ✅ 复制成功！内容已粘贴到剪贴板
-                </div>
+                <div class="copy-success" id="copySuccess1">✅ 复制成功！</div>
             </div>
 
             <div class="output-group" id="updateSqlGroup" style="display: none">
@@ -170,17 +206,125 @@
                     class="copy-btn"
                     onclick="copyToClipboard('updateSql', 'copySuccess2')"
                 >
-                    复制
+                    📋 手动复制
                 </button>
-                <div class="copy-success" id="copySuccess2">
-                    ✅ 复制成功！内容已粘贴到剪贴板
-                </div>
+                <div class="copy-success" id="copySuccess2">✅ 复制成功！</div>
             </div>
         </div>
 
         <script>
+            // ---------- 全局自动消失定时器管理 ----------
+            let successTimeout = null;
+            let errorTimeout = null;
+
+            // 显示成功消息 (自动消失)
+            function showSuccessMessage(message) {
+                const successDiv = document.getElementById("successMsg");
+                if (successTimeout) clearTimeout(successTimeout);
+                // 隐藏错误区域避免重叠
+                document.getElementById("errorMsg").style.display = "none";
+                if (errorTimeout) clearTimeout(errorTimeout);
+                successDiv.innerText = message;
+                successDiv.style.display = "block";
+                successTimeout = setTimeout(() => {
+                    successDiv.style.display = "none";
+                    successTimeout = null;
+                }, 3000);
+            }
+
+            // 显示错误消息 (自动消失)
+            function showErrorMessage(message) {
+                const errorDiv = document.getElementById("errorMsg");
+                if (errorTimeout) clearTimeout(errorTimeout);
+                // 隐藏成功区域
+                document.getElementById("successMsg").style.display = "none";
+                if (successTimeout) clearTimeout(successTimeout);
+                errorDiv.innerText = message;
+                errorDiv.style.display = "block";
+                errorTimeout = setTimeout(() => {
+                    errorDiv.style.display = "none";
+                    errorTimeout = null;
+                }, 3500);
+            }
+
+            // 兼容旧调用 (替换所有alert弹窗)
+            function showError(msg) {
+                console.warn("错误:", msg);
+                showErrorMessage(msg);
+            }
+
+            function showSuccess(msg) {
+                showSuccessMessage(msg);
+            }
+
+            // 自动复制核心 (返回 {success, message})
+            function autoCopy(targetId) {
+                const textarea = document.getElementById(targetId);
+                if (!textarea.value.trim()) {
+                    return {
+                        success: false,
+                        message: "⚠️ 暂无可复制的SQL内容",
+                    };
+                }
+                try {
+                    textarea.select();
+                    textarea.setSelectionRange(0, 99999);
+                    navigator.clipboard.writeText(textarea.value);
+                    return {
+                        success: true,
+                        message: "✅ 自动复制成功！内容已粘贴到剪贴板",
+                    };
+                } catch (err) {
+                    try {
+                        document.execCommand("copy");
+                        return {
+                            success: true,
+                            message: "✅ 自动复制成功！内容已粘贴到剪贴板",
+                        };
+                    } catch (fallbackErr) {
+                        return {
+                            success: false,
+                            message:
+                                "❌ 自动复制失败，请手动复制。" +
+                                fallbackErr.message,
+                        };
+                    }
+                }
+            }
+
+            // 手动复制 (保留原有交互，但错误提示走新方案)
+            function copyToClipboard(targetId, tipId) {
+                const textarea = document.getElementById(targetId);
+                const tip = document.getElementById(tipId);
+                if (!textarea.value.trim()) {
+                    showErrorMessage("暂无可复制的SQL内容，请先执行替换操作");
+                    return;
+                }
+                try {
+                    textarea.select();
+                    textarea.setSelectionRange(0, 99999);
+                    navigator.clipboard.writeText(textarea.value);
+                    tip.style.display = "block";
+                    setTimeout(() => (tip.style.display = "none"), 2000);
+                } catch (err) {
+                    try {
+                        document.execCommand("copy");
+                        tip.style.display = "block";
+                        setTimeout(() => (tip.style.display = "none"), 2000);
+                    } catch (fallbackErr) {
+                        showErrorMessage(
+                            "复制失败，请手动复制！错误：" +
+                                fallbackErr.message,
+                        );
+                    }
+                }
+            }
+
+            // ---------- 核心转换逻辑 ----------
             function convertSql() {
-                // 清空提示和输出
+                // 清空旧提示和输出区
+                if (successTimeout) clearTimeout(successTimeout);
+                if (errorTimeout) clearTimeout(errorTimeout);
                 document.getElementById("errorMsg").style.display = "none";
                 document.getElementById("successMsg").style.display = "none";
                 document.getElementById("formattedSql").value = "";
@@ -190,27 +334,20 @@
                 document.getElementById("copySuccess1").style.display = "none";
                 document.getElementById("copySuccess2").style.display = "none";
 
-                // 获取输入值
                 const sqlTemplate = document
                     .getElementById("sqlTemplate")
                     .value.trim();
-
-                // 基础校验
                 if (!sqlTemplate) {
-                    showError("请输入SQL!");
+                    showErrorMessage("❌ 请输入SQL模板！");
                     return;
                 }
-                // 将 sqlTemplate 分成 sql 和  参数列表，以 执行参数：来分割
+
                 const separator = ", 执行参数：";
-                // 按分隔符分割SQL内容和参数列表
                 const [sqlPart, paramPart] = sqlTemplate.split(separator);
-                // 重新赋值rawSql为分隔符前的SQL部分（去除首尾空白）
                 const rawSql = sqlPart ? sqlPart.trim() : "";
-                // 重新赋值paramInput为分隔符后的参数部分（去除首尾空白）
                 const paramInput = paramPart ? paramPart.trim() : "";
 
                 try {
-                    // 1. 识别SQL类型
                     const sqlLower = rawSql.toLowerCase();
                     let sqlType = null;
                     if (sqlLower.startsWith("insert")) sqlType = "INSERT";
@@ -218,29 +355,26 @@
                     else if (sqlLower.startsWith("update")) sqlType = "UPDATE";
 
                     if (!sqlType) {
-                        showError(
-                            "仅支持INSERT/SELECT/UPDATE类型的SQL，请检查输入",
+                        showErrorMessage(
+                            "仅支持 INSERT / SELECT / UPDATE 类型的SQL，请检查输入",
                         );
                         return;
                     }
 
-                    // 2. 解析参数列表
                     const paramItems = parseParamsWithType(paramInput);
-                    // 3. 统计SQL中的?数量
                     const placeholderCount = (rawSql.match(/\?/g) || []).length;
 
                     console.log(
-                        `【最终校验】SQL占位符数量：${placeholderCount} | 解析参数数量：${paramItems.length}`,
+                        `占位符数量: ${placeholderCount}, 参数数量: ${paramItems.length}`,
                     );
-
                     if (paramItems.length !== placeholderCount) {
-                        showError(
-                            `参数数量不匹配！SQL中有${placeholderCount}个?，但输入了${paramItems.length}个参数`,
+                        showErrorMessage(
+                            `参数数量不匹配！SQL中有 ${placeholderCount} 个?，但输入了 ${paramItems.length} 个参数`,
                         );
                         return;
                     }
 
-                    // 4. 根据SQL类型处理
+                    // 根据SQL类型分发处理
                     if (sqlType === "SELECT" || sqlType === "UPDATE") {
                         const formattedSql = replacePlaceholders(
                             rawSql,
@@ -248,33 +382,37 @@
                         );
                         document.getElementById("formattedSql").value =
                             formattedSql;
-                        // 自动静默复制生成的SQL
+                        // 自动复制主SQL
                         const copyResult = autoCopy("formattedSql");
-                        // 弹出提示框
-                        alert(
-                            `${sqlType}语句处理成功！\n${copyResult.message}`,
-                        );
+                        let finalMsg = `${sqlType} 语句处理成功！\n`;
+                        if (copyResult.success) {
+                            finalMsg += copyResult.message;
+                        } else {
+                            finalMsg += copyResult.message;
+                        }
+                        // 根据复制结果决定展示成功/错误样式（但SQL本身处理成功）
+                        if (copyResult.success) {
+                            showSuccessMessage(finalMsg);
+                        } else {
+                            showErrorMessage(finalMsg);
+                        }
                     } else if (sqlType === "INSERT") {
-                        // 解析INSERT语句，返回{表名, 字段, VALUES项, 占位符位置索引}
+                        // 解析INSERT语句
                         const sqlParseResult = parseInsertSql(rawSql);
-                        // 二次校验：解析出的?数量必须和实际占位符数量一致
                         if (
                             sqlParseResult.placeholderIndexes.length !==
                             placeholderCount
                         ) {
                             throw new Error(
-                                `INSERT语句解析异常：解析出${sqlParseResult.placeholderIndexes.length}个?，实际SQL中有${placeholderCount}个?`,
+                                `INSERT语句解析异常：解析出 ${sqlParseResult.placeholderIndexes.length} 个?，实际SQL中有 ${placeholderCount} 个?`,
                             );
                         }
 
                         const valueMap = {};
-                        let paramIndex = 0; // 独立的参数索引，仅遍历?对应的paramItems
-                        sqlParseResult.columns.forEach((col, index) => {
-                            // 判断当前VALUES项是否是?，是则取paramItems，否则保留NULL
+                        let paramIndex = 0;
+                        sqlParseResult.columns.forEach((col, idx) => {
                             if (
-                                sqlParseResult.placeholderIndexes.includes(
-                                    index,
-                                )
+                                sqlParseResult.placeholderIndexes.includes(idx)
                             ) {
                                 const param = paramItems[paramIndex++];
                                 valueMap[col] = formatParamByType(
@@ -282,7 +420,7 @@
                                     param.type,
                                 );
                             } else {
-                                valueMap[col] = "NULL"; // 固定NULL项直接赋值
+                                valueMap[col] = "NULL";
                             }
                         });
 
@@ -294,12 +432,12 @@
                         document.getElementById("formattedSql").value =
                             formattedInsert;
 
-                        // 生成UPDATE
+                        // 查找主键id
                         const primaryKey = Object.keys(valueMap).find(
                             (col) => col.toLowerCase() === "id",
                         );
                         if (!primaryKey) {
-                            showError(
+                            showErrorMessage(
                                 "INSERT语句的字段列表中未找到「id」字段，无法生成UPDATE的WHERE条件",
                             );
                             return;
@@ -316,154 +454,71 @@
                             "updateSqlGroup",
                         ).style.display = "block";
 
-                        // 自动静默复制INSERT语句（主内容）
+                        // 自动复制 INSERT 语句
                         const copyResult = autoCopy("formattedSql");
-                        // 弹出提示框，告知处理结果和复制状态
-                        alert(`INSERT语句处理成功！
-已生成完整INSERT和UPDATE语句（UPDATE条件：${primaryKey}=${idValue}）
-${copyResult.message}
-UPDATE语句已生成，可手动复制`);
+                        let finalMsg = `✨ INSERT语句处理成功！\n已生成完整INSERT和UPDATE语句（UPDATE条件：${primaryKey}=${idValue}）\n`;
+                        if (copyResult.success) {
+                            finalMsg += `${copyResult.message}\n📄 UPDATE语句已生成，可手动复制。`;
+                        } else {
+                            finalMsg += `${copyResult.message}\n📄 UPDATE语句已生成，请手动复制。`;
+                        }
+
+                        if (copyResult.success) {
+                            showSuccessMessage(finalMsg);
+                        } else {
+                            showErrorMessage(finalMsg);
+                        }
                     }
                 } catch (e) {
-                    showError(`处理失败：${e.message}`);
-                    console.error("处理错误：", e);
+                    showErrorMessage(`处理失败：${e.message}`);
+                    console.error("转换错误：", e);
                 }
             }
 
-            // 新增：自动复制函数（静默复制，返回结果）
-            function autoCopy(targetId) {
-                const textarea = document.getElementById(targetId);
-
-                if (!textarea.value.trim()) {
-                    return { success: false, message: "暂无可复制的SQL内容" };
-                }
-
-                try {
-                    textarea.select();
-                    textarea.setSelectionRange(0, 99999);
-                    navigator.clipboard.writeText(textarea.value);
-                    return {
-                        success: true,
-                        message: "✅ 复制成功！内容已粘贴到剪贴板",
-                    };
-                } catch (err) {
-                    try {
-                        document.execCommand("copy");
-                        return {
-                            success: true,
-                            message: "✅ 复制成功！内容已粘贴到剪贴板",
-                        };
-                    } catch (fallbackErr) {
-                        return {
-                            success: false,
-                            message:
-                                "❌ 复制失败，请手动复制！错误：" +
-                                fallbackErr.message,
-                        };
-                    }
-                }
-            }
-
-            // 保留原复制函数（备用手动复制）
-            function copyToClipboard(targetId, tipId) {
-                const textarea = document.getElementById(targetId);
-                const tip = document.getElementById(tipId);
-
-                if (!textarea.value.trim()) {
-                    showError("暂无可复制的SQL内容，请先执行替换操作");
-                    return;
-                }
-
-                try {
-                    textarea.select();
-                    textarea.setSelectionRange(0, 99999);
-                    navigator.clipboard.writeText(textarea.value);
-                    tip.style.display = "block";
-                    setTimeout(() => (tip.style.display = "none"), 3000);
-                } catch (err) {
-                    try {
-                        document.execCommand("copy");
-                        tip.style.display = "block";
-                        setTimeout(() => (tip.style.display = "none"), 3000);
-                    } catch (fallbackErr) {
-                        showError(
-                            "复制失败，请手动复制！错误信息：" +
-                                fallbackErr.message,
-                        );
-                    }
-                }
-            }
-
+            // ---------- 工具函数 ----------
             function replacePlaceholders(sql, paramItems) {
-                let resultSql = sql;
-                let paramIndex = 0;
-                resultSql = resultSql.replace(/\?/g, () => {
-                    if (paramIndex >= paramItems.length) {
-                        throw new Error("参数数量不足，无法完成占位符替换");
-                    }
-                    const param = paramItems[paramIndex++];
+                let idx = 0;
+                return sql.replace(/\?/g, () => {
+                    if (idx >= paramItems.length) throw new Error("参数不足");
+                    const param = paramItems[idx++];
                     return formatParamByType(param.value, param.type);
                 });
-                return formatSql(resultSql);
             }
 
-            /**
-             * 核心重构：参数解析函数（先粗分割，再校验合并）
-             * 逻辑：
-             * 1. 先按逗号粗分割成数组
-             * 2. 遍历数组，跟踪嵌套状态（引号/括号），把误分割的片段合并
-             * 3. 校验每个片段是否是完整参数（包含null/括号/类型标注），否则合并
-             */
+            // 参数解析 (智能合并嵌套结构)
             function parseParamsWithType(paramStr) {
-                // 预处理：清理不可见字符、全角逗号转半角、合并多空格
                 const cleanStr = paramStr
                     .replace(/[\t\n\r]/g, " ")
                     .replace(/，/g, ",")
                     .replace(/\s+/g, " ")
                     .trim();
+                if (!cleanStr) return [];
 
-                // 步骤1：粗分割（先按逗号分割）
                 let roughParts = cleanStr.split(",");
-                console.log(
-                    `【粗分割结果】分割出${roughParts.length}个片段：`,
-                    roughParts,
-                );
-
-                // 步骤2：合并误分割的片段
                 const mergedParams = [];
-                let currentMerge = ""; // 正在合并的参数片段
+                let currentMerge = "";
                 let state = {
-                    // 嵌套状态跟踪
                     inDoubleQuote: false,
                     inSingleQuote: false,
-                    braceLevel: 0, // {}
-                    bracketLevel: 0, // []
-                    parenthesisLevel: 0, // ()
+                    braceLevel: 0,
+                    bracketLevel: 0,
+                    parenthesisLevel: 0,
                 };
 
-                // 遍历每个粗分割片段，判断是否需要合并
                 roughParts.forEach((part, index) => {
                     const trimPart = part.trim();
-                    if (trimPart === "") return; // 跳过空片段
-
-                    // 更新当前合并的内容
+                    if (trimPart === "") return;
                     currentMerge += (currentMerge ? "," : "") + trimPart;
 
-                    // 遍历当前片段的每个字符，更新嵌套状态
                     for (let i = 0; i < trimPart.length; i++) {
                         const c = trimPart.charAt(i);
                         const prevC = i > 0 ? trimPart.charAt(i - 1) : "";
-
-                        if (prevC === "\\") continue; // 跳过转义字符
-
-                        // 更新引号状态
-                        if (c === '"' && !state.inSingleQuote) {
+                        if (prevC === "\\") continue;
+                        if (c === '"' && !state.inSingleQuote)
                             state.inDoubleQuote = !state.inDoubleQuote;
-                        } else if (c === "'" && !state.inDoubleQuote) {
+                        else if (c === "'" && !state.inDoubleQuote)
                             state.inSingleQuote = !state.inSingleQuote;
-                        }
 
-                        // 更新括号层级（仅不在引号内时）
                         if (!state.inDoubleQuote && !state.inSingleQuote) {
                             if (c === "{") state.braceLevel++;
                             if (c === "}")
@@ -486,8 +541,7 @@ UPDATE语句已生成，可手动复制`);
                         }
                     }
 
-                    // 判断是否是完整参数：所有嵌套结构闭合 + 包含类型标注/null/括号
-                    const isCompleteParam =
+                    const isComplete =
                         !state.inDoubleQuote &&
                         !state.inSingleQuote &&
                         state.braceLevel === 0 &&
@@ -497,16 +551,11 @@ UPDATE语句已生成，可手动复制`);
                             trimPart.toLowerCase() === "null" ||
                             trimPart.includes("{") ||
                             trimPart.includes("["));
+                    const isLast = index === roughParts.length - 1;
 
-                    // 边界处理：最后一个片段直接合并
-                    const isLastPart = index === roughParts.length - 1;
-
-                    // 如果是完整参数 或 是最后一个片段，结束合并
-                    if (isCompleteParam || isLastPart) {
-                        if (currentMerge.trim() !== "") {
+                    if (isComplete || isLast) {
+                        if (currentMerge.trim() !== "")
                             mergedParams.push(currentMerge.trim());
-                        }
-                        // 重置合并状态
                         currentMerge = "";
                         state = {
                             inDoubleQuote: false,
@@ -518,76 +567,53 @@ UPDATE语句已生成，可手动复制`);
                     }
                 });
 
-                console.log(
-                    `【合并后结果】有效参数数量：${mergedParams.length}`,
-                    mergedParams,
-                );
-
-                // 步骤3：提取每个完整参数的value和type
-                const finalParams = [];
-                mergedParams.forEach((param) => {
-                    const { value, type } = extractParamAndType(param);
-                    finalParams.push({ value, type });
-                });
-
-                return finalParams;
+                return mergedParams.map((p) => extractParamAndType(p));
             }
 
             function extractParamAndType(param) {
-                // 匹配 "xxx(类型)" 格式
                 const typeMatch = param.match(/^(.*?)\s*\((\w+)\)\s*$/);
                 if (typeMatch) {
                     let value = typeMatch[1].trim();
                     const type = typeMatch[2].trim();
-                    // 去除外层引号（仅最外层）
-                    if (value.startsWith('"') && value.endsWith('"')) {
+                    if (value.startsWith('"') && value.endsWith('"'))
                         value = value.slice(1, -1).replace(/\\"/g, '"');
-                    }
-                    if (value.startsWith("'") && value.endsWith("'")) {
+                    if (value.startsWith("'") && value.endsWith("'"))
                         value = value.slice(1, -1).replace(/\\'/g, "'");
-                    }
                     return { value, type };
                 }
-
-                // 无类型标注（Auto）
                 let value = param.trim();
-                if (value.startsWith('"') && value.endsWith('"')) {
+                if (value.startsWith('"') && value.endsWith('"'))
                     value = value.slice(1, -1).replace(/\\"/g, '"');
-                }
-                if (value.startsWith("'") && value.endsWith("'")) {
+                if (value.startsWith("'") && value.endsWith("'"))
                     value = value.slice(1, -1).replace(/\\'/g, "'");
-                }
                 return { value, type: "Auto" };
             }
 
             function formatParamByType(value, type) {
                 const trimmed = value.trim();
                 if (trimmed.toLowerCase() === "null") return "null";
-
-                if (type === "String") {
-                    return `'${trimmed}'`;
-                } else if (
+                if (type === "String") return `'${trimmed}'`;
+                if (
                     type === "Integer" ||
                     type === "Long" ||
                     type === "Number"
                 ) {
-                    const numberRegex =
+                    const regex =
                         type === "Integer" || type === "Long"
                             ? /^-?\d+$/
                             : /^-?\d+(\.\d+)?$/;
-                    if (!numberRegex.test(trimmed)) {
+                    if (!regex.test(trimmed))
                         throw new Error(
                             `参数值「${trimmed}」标注为${type}类型，但不是有效数字`,
                         );
-                    }
                     return trimmed;
                 }
-
                 // Auto类型
                 if (/^-?\d+(\.\d+)?$/.test(trimmed)) return trimmed;
                 return `'${trimmed}'`;
             }
 
+            // 格式化缩进 (保留原有美观)
             function formatSql(sql) {
                 return sql
                     .replace(/\s+SET\s+/i, "\nSET ")
@@ -596,75 +622,52 @@ UPDATE语句已生成，可手动复制`);
                     .replace(/\s+OR\s+/i, "\n  OR ")
                     .replace(/\s+IN\s*\(/i, "\n  IN (");
             }
-            /**
-             * 重构解析INSERT语句：
-             * 1. 兼容表别名（如ys_kd_chufangxx AS ykcfx1_0）
-             * 2. 记录VALUES中?的位置索引（核心：返回placeholderIndexes）
-             * 3. 移除冗余cleanSql处理
-             * 4. 增强SQL格式兼容性
-             */
+
+            // 解析INSERT (返回placeholderIndexes)
             function parseInsertSql(sql) {
                 const lowerSql = sql
                     .toLowerCase()
                     .replace(/;/g, "")
                     .replace(/\s+/g, " ");
-                // 兼容表别名的正则：匹配 insert into 表名 [as 别名]，忽略别名仅取表名
                 const tableMatch = lowerSql.match(
                     /insert into\s+(\w+)\s*(?:as\s*\w+)?/,
                 );
-                if (!tableMatch) {
+                if (!tableMatch)
                     throw new Error(
-                        "无法识别INSERT语句的表名，请检查SQL格式（支持表别名：表名 AS 别名）",
+                        "无法识别INSERT语句的表名，请检查SQL格式（支持表别名）",
                     );
-                }
                 const tableName = tableMatch[1];
 
-                // 匹配字段列表和VALUES列表（兼容换行/多空格，不修改原始SQL）
                 const rawContentMatch = sql.match(
                     /\(([\s\S]*?)\)\s*values\s*\(([\s\S]*?)\)/i,
                 );
-                if (!rawContentMatch) {
+                if (!rawContentMatch)
                     throw new Error(
-                        "无法识别INSERT语句的字段和VALUES列表，请检查SQL格式（需包含 (字段) VALUES (值) 结构）",
+                        "无法识别INSERT语句的字段和VALUES列表，请检查格式",
                     );
-                }
 
-                // 解析字段列（清理换行/空格，过滤空项）
                 const columnsStr = rawContentMatch[1]
                     .replace(/\n/g, "")
                     .replace(/\s+/g, " ")
                     .trim();
                 const columns = parseSqlItems(columnsStr, "字段");
-                // 解析VALUES列（清理换行/空格，过滤空项）
                 const valuesStr = rawContentMatch[2]
                     .replace(/\n/g, "")
                     .replace(/\s+/g, " ")
                     .trim();
                 const values = parseSqlItems(valuesStr, "VALUES项");
 
-                // 校验字段数量和VALUES项数量一致
-                if (columns.length !== values.length) {
+                if (columns.length !== values.length)
                     throw new Error(
-                        `INSERT语句字段数量(${columns.length})和VALUES项数量(${values.length})不匹配`,
+                        `字段数量(${columns.length})和VALUES项数量(${values.length})不匹配`,
                     );
-                }
 
-                // 核心：遍历VALUES项，记录所有?的位置索引（关键返回属性）
                 const placeholderIndexes = [];
-                values.forEach((item, index) => {
-                    if (item.trim() === "?") {
-                        // 精准匹配占位符?（忽略前后空格）
-                        placeholderIndexes.push(index);
-                    }
+                values.forEach((item, idx) => {
+                    if (item.trim() === "?") placeholderIndexes.push(idx);
                 });
 
-                // 必须返回placeholderIndexes，上层代码依赖该属性
-                return {
-                    tableName,
-                    columns,
-                    values,
-                    placeholderIndexes, // 核心：返回?的位置索引数组，不可缺失
-                };
+                return { tableName, columns, values, placeholderIndexes };
             }
 
             function generateInsertWithValues(tableName, valueMap) {
@@ -672,11 +675,7 @@ UPDATE语句已生成，可手动复制`);
                 const values = columns.map((col) => valueMap[col]);
                 const columnsLine = columns.join(",\n    ");
                 const valuesLine = values.join(",\n    ");
-                return `INSERT INTO ${tableName} (
-                ${columnsLine}
-            ) VALUES (
-                ${valuesLine}
-            );`;
+                return `INSERT INTO ${tableName} (\n    ${columnsLine}\n) VALUES (\n    ${valuesLine}\n);`;
             }
 
             function generateUpdateWithValues(
@@ -692,28 +691,23 @@ UPDATE语句已生成，可手动复制`);
                     }
                 });
                 const setLine = setClauses.join(",\n    ");
-                return `UPDATE ${tableName} SET
-                ${setLine}
-            WHERE ${primaryKey} = ${idValue};`;
+                return `UPDATE ${tableName} SET\n    ${setLine}\nWHERE ${primaryKey} = ${idValue};`;
             }
 
             function parseSqlItems(str, type) {
                 const items = [];
                 let start = 0;
-                let braceLevel = 0;
-                let bracketLevel = 0;
+                let braceLevel = 0,
+                    bracketLevel = 0;
                 let inQuote = false;
-
                 for (let i = 0; i < str.length; i++) {
                     const c = str.charAt(i);
                     if (c === "'" || c === '"') inQuote = !inQuote;
-
                     if (!inQuote) {
                         if (c === "{") braceLevel++;
                         if (c === "}") braceLevel--;
                         if (c === "[") bracketLevel++;
                         if (c === "]") bracketLevel--;
-
                         if (
                             c === "," &&
                             braceLevel === 0 &&
@@ -729,17 +723,6 @@ UPDATE语句已生成，可手动复制`);
                 if (result.length === 0)
                     throw new Error(`未解析到有效的${type}列表`);
                 return result;
-            }
-
-            function showSuccess(msg) {
-                document.getElementById("successMsg").style.display = "block";
-                document.getElementById("successMsg").innerText = msg;
-            }
-
-            function showError(msg) {
-                document.getElementById("errorMsg").style.display = "block";
-                document.getElementById("errorMsg").innerText = msg;
-                alert(`错误：${msg}`);
             }
         </script>
     </body>
