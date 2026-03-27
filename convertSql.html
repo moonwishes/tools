@@ -2,198 +2,305 @@
 <html lang="zh-CN">
     <head>
         <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>SQL 占位符替换工具</title>
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0, user-scalable=yes"
+        />
+        <title>SQL占位符替换工具 - 增强版(字段长度校验)</title>
         <style>
             * {
                 margin: 0;
                 padding: 0;
                 box-sizing: border-box;
-                font-family: "Microsoft Yahei", sans-serif;
+                font-family:
+                    "Segoe UI", "Microsoft Yahei", system-ui, sans-serif;
             }
             body {
-                padding: 20px;
-                background-color: #f5f5f5;
+                background: #f0f2f5;
+                padding: 24px 20px;
             }
             .container {
-                max-width: 1200px;
+                max-width: 1400px;
                 margin: 0 auto;
-                background: white;
-                padding: 25px;
-                border-radius: 8px;
-                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-                position: relative;
+                background: #ffffff;
+                border-radius: 20px;
+                box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+                padding: 28px 30px;
+                transition: all 0.2s;
             }
             h1 {
+                font-size: 26px;
+                font-weight: 600;
+                color: #1e2a3a;
                 text-align: center;
-                color: #333;
                 margin-bottom: 20px;
-                font-size: 24px;
+                letter-spacing: -0.3px;
+                border-left: 5px solid #007bff;
+                padding-left: 20px;
+                display: inline-block;
+                width: auto;
+            }
+            .title-wrap {
+                text-align: center;
+                margin-bottom: 16px;
+            }
+            .sql-type-tip {
+                background: #eef2ff;
+                border-left: 4px solid #3b82f6;
+                padding: 14px 18px;
+                border-radius: 14px;
+                font-size: 13px;
+                color: #1e40af;
+                margin: 16px 0 20px 0;
+                line-height: 1.5;
+                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+            }
+            .sql-type-tip strong {
+                color: #0c4a6e;
             }
             .form-group {
-                margin-bottom: 15px;
+                margin-bottom: 20px;
             }
             label {
-                display: block;
-                margin-bottom: 8px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
                 font-weight: 600;
-                color: #555;
+                color: #1e293b;
+                margin-bottom: 8px;
+                font-size: 14px;
+            }
+            label i {
+                font-style: normal;
+                font-weight: 400;
+                color: #5b6e8c;
+                font-size: 12px;
             }
             textarea {
                 width: 100%;
-                padding: 12px;
-                border: 1px solid #ddd;
-                border-radius: 4px;
-                resize: vertical;
+                padding: 12px 14px;
+                border: 1px solid #cbd5e1;
+                border-radius: 14px;
                 font-size: 13px;
-                line-height: 1.4;
-                min-height: 120px;
+                line-height: 1.45;
+                font-family: "SF Mono", "Fira Code", monospace;
+                resize: vertical;
+                background: #fefefe;
+                transition: 0.2s;
+            }
+            textarea:focus {
+                outline: none;
+                border-color: #3b82f6;
+                box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
             }
             button {
-                display: block;
-                width: 100%;
-                padding: 12px;
                 background-color: #007bff;
-                color: white;
                 border: none;
-                border-radius: 4px;
-                font-size: 16px;
+                padding: 12px 20px;
+                border-radius: 40px;
+                font-weight: 600;
+                font-size: 15px;
                 cursor: pointer;
-                margin: 20px 0;
-                transition: background-color 0.3s;
+                transition: all 0.2s ease;
+                color: white;
+                width: 100%;
+                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
             }
             button:hover {
                 background-color: #0056b3;
+                transform: translateY(-1px);
+                box-shadow: 0 6px 12px rgba(0, 123, 255, 0.2);
             }
             .copy-btn {
                 width: auto;
-                padding: 8px 16px;
-                margin: 10px 0 0 0;
-                background-color: #28a745;
-                font-size: 14px;
-                display: inline-block;
+                background-color: #2c7a4d;
+                padding: 6px 18px;
+                font-size: 13px;
+                margin-top: 10px;
+                border-radius: 30px;
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
             }
             .copy-btn:hover {
-                background-color: #218838;
+                background-color: #1f5e3a;
             }
             .output-group {
-                margin-top: 30px;
+                margin-top: 28px;
+                background: #fafcff;
+                border-radius: 18px;
+                padding: 6px 0 12px 0;
+            }
+            .output-group label {
+                font-weight: 700;
+                margin-bottom: 10px;
+                font-size: 15px;
             }
             .error,
             .success {
-                margin: 10px 0;
-                padding: 12px 15px;
-                border-radius: 4px;
+                margin: 12px 0;
+                padding: 12px 18px;
+                border-radius: 14px;
                 display: none;
-                animation: fadeIn 0.3s ease;
                 font-size: 14px;
-                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+                font-weight: 500;
+                backdrop-filter: blur(2px);
             }
             .error {
-                color: #721c24;
-                background-color: #f8d7da;
-                border-left: 4px solid #dc3545;
+                background: #fee2e2;
+                border-left: 5px solid #dc2626;
+                color: #991b1b;
             }
             .success {
-                color: #155724;
-                background-color: #d4edda;
-                border-left: 4px solid #28a745;
-            }
-            .sql-type-tip {
-                color: #20c997;
-                font-weight: 600;
-                margin: 10px 0;
-                padding: 8px;
-                background-color: #e6fffa;
-                border-radius: 4px;
+                background: #e0f2e9;
+                border-left: 5px solid #10b981;
+                color: #065f46;
             }
             .copy-success {
-                color: #28a745;
-                margin: 8px 0;
-                font-size: 14px;
+                color: #15803d;
+                font-size: 12px;
+                margin-top: 6px;
                 display: none;
+            }
+            .field-warning-badge {
+                font-size: 12px;
+                font-weight: normal;
+                background: #ffedd5;
+                color: #b45309;
+                border-radius: 20px;
+                padding: 2px 10px;
+                margin-left: 8px;
+            }
+            hr {
+                margin: 12px 0;
+                border-color: #e2e8f0;
+            }
+            .footer-tip {
+                font-size: 12px;
+                color: #5b6e8c;
+                text-align: center;
+                margin-top: 20px;
+                border-top: 1px solid #e9edf2;
+                padding-top: 16px;
             }
             @keyframes fadeIn {
                 from {
                     opacity: 0;
-                    transform: translateY(-8px);
+                    transform: translateY(-6px);
                 }
                 to {
                     opacity: 1;
                     transform: translateY(0);
                 }
             }
+            textarea[readonly] {
+                background: #f8fafc;
+                color: #0f172a;
+            }
         </style>
     </head>
     <body>
         <div class="container">
-            <h1>SQL 占位符替换工具</h1>
+            <div class="title-wrap">
+                <h1>🔧 SQL 占位符替换工具</h1>
+            </div>
             <div class="error" id="errorMsg"></div>
             <div class="success" id="successMsg"></div>
             <div class="sql-type-tip">
-                📌 支持三种SQL类型：<br />
-                1. SELECT语句：仅替换占位符生成完整查询语句；<br />
-                2. UPDATE语句：仅替换占位符生成完整更新语句；<br />
-                3.
-                INSERT语句：替换占位符+生成UPDATE+字段类型注释（大小写全自动兼容）。<br />
+                📌 <strong>智能替换 + 字段长度校验（INSERT专属）</strong><br />
+                ✅ SELECT / UPDATE : 直接替换占位符，生成完整SQL。<br />
+                ✅ INSERT : 替换占位符 + 自动生成 UPDATE语句 +
+                <span
+                    style="
+                        background: #fef9c3;
+                        padding: 2px 6px;
+                        border-radius: 12px;
+                    "
+                    >根据表结构校验VARCHAR长度</span
+                >，超长字段自动标记 ❌超长 并展示错误列表。<br />
+                💡 提示：表结构越完整，校验越精准（支持
+                varchar(n)、numeric、timestamp等）。字段名大小写自动匹配。
             </div>
 
             <div class="form-group">
-                <label for="sqlTemplate">
-                    带?和参数列表的SQL模板（INSERT/SELECT/UPDATE）
-                </label>
+                <label
+                    >📝 带?和参数列表的SQL模板
+                    <i>(INSERT / SELECT / UPDATE)</i></label
+                >
                 <textarea
                     id="sqlTemplate"
-                    placeholder="示例1(SELECT)：SELECT id, name FROM user WHERE id IN (?, ?) AND status = ?,执行参数：xxx(String)，xxx(String)
-示例2(UPDATE)：UPDATE user SET name = ?, ext = ? WHERE id = ?,执行参数：xxx(String)，xxx(String)，xxx(String)
-示例3(INSERT)：INSERT INTO user (id, deptName, json_data) VALUES (?, ?, ?),执行参数：xxx(String)，xxx(String)，xxx(String)"
+                    placeholder="示例(INSERT带超长校验)：INSERT INTO user (id, name, remark) VALUES (?, ?, ?), 执行参数：155699555319834624011(String), 张三(String), 测试备注(String)
+
+示例(SELECT)：SELECT * FROM product WHERE code = ? AND status = ?, 执行参数：P10086(String), 1(Integer)
+
+示例(UPDATE)：UPDATE orders SET amount = ?, remark = ? WHERE id = ?, 执行参数：99.99(BigDecimal), 已更新(String), 1001(String)"
                 ></textarea>
             </div>
 
             <div class="form-group">
-                <label for="tableStructure">
-                    表结构（可选，INSERT专用，生成字段类型注释）
-                </label>
+                <label
+                    >🗄️ 表结构 DDL（可选，INSERT专用：字段类型+长度校验）</label
+                >
                 <textarea
                     id="tableStructure"
-                    placeholder="示例：CREATE TABLE user (id varchar(20) NOT NULL, deptName varchar(50), json_data json, create_time datetime);"
+                    placeholder="粘贴 CREATE TABLE 语句，例如：
+CREATE TABLE user (
+    id varchar(20) NOT NULL,
+    name varchar(50),
+    remark varchar(100),
+    age int,
+    price numeric(10,2)
+);"
                 ></textarea>
             </div>
 
-            <button onclick="convertSql()">🚀 替换占位符</button>
+            <button onclick="convertSql()">✨ 替换占位符 & 智能校验</button>
 
             <div class="output-group">
-                <label for="formattedSql">替换后的完整SQL语句</label>
-                <textarea id="formattedSql" readonly></textarea>
+                <label for="formattedSql">✅ 替换后的完整SQL语句</label>
+                <textarea
+                    id="formattedSql"
+                    readonly
+                    rows="6"
+                    style="font-family: monospace"
+                ></textarea>
                 <button
                     class="copy-btn"
                     onclick="copyToClipboard('formattedSql', 'copySuccess1')"
                 >
-                    📋 复制
+                    📋 复制SQL
                 </button>
                 <div class="copy-success" id="copySuccess1">✅ 复制成功！</div>
             </div>
 
             <div class="output-group" id="updateSqlGroup" style="display: none">
                 <label for="updateSql"
-                    >生成的带实际值的UPDATE语句（自动用id作为主键）</label
+                    >🔄 自动生成的UPDATE语句（基于主键 id）</label
                 >
-                <textarea id="updateSql" readonly></textarea>
+                <textarea
+                    id="updateSql"
+                    readonly
+                    rows="4"
+                    style="font-family: monospace"
+                ></textarea>
                 <button
                     class="copy-btn"
                     onclick="copyToClipboard('updateSql', 'copySuccess2')"
                 >
-                    📋 复制
+                    📋 复制UPDATE
                 </button>
                 <div class="copy-success" id="copySuccess2">✅ 复制成功！</div>
+            </div>
+            <div class="footer-tip">
+                ⚡
+                增强特性：INSERT模式下，若提供表结构，自动比对VARCHAR字段长度，超长会在值后标注「❗超长(实际长度>限制)」并弹出错误汇总。
             </div>
         </div>
 
         <script>
-            let successTimeout = null;
-            let errorTimeout = null;
+            let successTimeout = null,
+                errorTimeout = null;
 
-            // 驼峰转全小写（终极修复：baoMiBZ → baomibz）
             function camelToLower(str) {
                 return str.replace(/([A-Z])/g, (g) => g.toLowerCase()).trim();
             }
@@ -208,20 +315,24 @@
                 successTimeout = setTimeout(() => {
                     successDiv.style.display = "none";
                     successTimeout = null;
-                }, 3000);
+                }, 4000);
             }
 
-            function showErrorMessage(message) {
+            function showErrorMessage(message, isHtml = false) {
                 const errorDiv = document.getElementById("errorMsg");
                 if (errorTimeout) clearTimeout(errorTimeout);
                 document.getElementById("successMsg").style.display = "none";
                 if (successTimeout) clearTimeout(successTimeout);
-                errorDiv.innerText = message;
+                if (isHtml) {
+                    errorDiv.innerHTML = message;
+                } else {
+                    errorDiv.innerText = message;
+                }
                 errorDiv.style.display = "block";
                 errorTimeout = setTimeout(() => {
                     errorDiv.style.display = "none";
                     errorTimeout = null;
-                }, 3500);
+                }, 6000);
             }
 
             function autoCopy(targetId) {
@@ -270,12 +381,12 @@
                     textarea.setSelectionRange(0, 99999);
                     navigator.clipboard.writeText(textarea.value);
                     tip.style.display = "block";
-                    setTimeout(() => (tip.style.display = "none"), 2000);
+                    setTimeout(() => (tip.style.display = "none"), 1800);
                 } catch (err) {
                     try {
                         document.execCommand("copy");
                         tip.style.display = "block";
-                        setTimeout(() => (tip.style.display = "none"), 2000);
+                        setTimeout(() => (tip.style.display = "none"), 1800);
                     } catch (fallbackErr) {
                         showErrorMessage(
                             "复制失败，请手动复制！错误：" +
@@ -285,174 +396,212 @@
                 }
             }
 
-            // 超强表结构解析
             function parseTableStructure(sql) {
                 if (!sql) return {};
                 const fieldMap = {};
-                let s = sql.replace(/\n/g, " ").replace(/\s+/g, " ");
-                const m = s.match(/\(([\s\S]*)\)/i);
-                if (!m) return fieldMap;
-                const body = m[1];
-                const lines = body.split(/,\s*(?![^()]*\))/);
 
+                // 移除 SQL 注释（-- 开头）和多余空白
+                const lines = sql.split("\n");
+                let tableBody = "";
+                let inParen = false;
+                let parenLevel = 0;
                 for (let line of lines) {
-                    line = line.trim().replace(/--.*/, "").trim();
+                    // 移除行内注释（-- 后面的内容）
+                    line = line.replace(/--.*$/, "").trim();
+                    if (!line) continue;
+                    // 寻找 CREATE TABLE 的括号内容
+                    if (!inParen) {
+                        const startIdx = line.indexOf("(");
+                        if (startIdx !== -1) {
+                            inParen = true;
+                            tableBody += line.substring(startIdx + 1) + " ";
+                        }
+                    } else {
+                        tableBody += line + " ";
+                    }
+                    // 统计括号层级
+                    if (inParen) {
+                        for (let ch of line) {
+                            if (ch === "(") parenLevel++;
+                            if (ch === ")") parenLevel--;
+                        }
+                        if (parenLevel === 0) break; // 括号闭合，表体结束
+                    }
+                }
+
+                // 按逗号分割，忽略括号内的逗号
+                const tokens = splitByCommaNotInParentheses(tableBody);
+
+                for (let token of tokens) {
+                    token = token.trim();
+                    if (!token) continue;
+                    // 跳过主键、外键、约束等
                     if (
-                        !line ||
-                        line.startsWith("CONSTRAINT") ||
-                        line.startsWith("PRIMARY")
+                        /^(primary|foreign|unique|check|constraint)/i.test(
+                            token,
+                        )
                     )
                         continue;
-                    const reg = /^(\w+)\s+([\w\(\)]+)/i;
-                    const fm = line.match(reg);
-                    if (fm) fieldMap[fm[1].toLowerCase()] = fm[2];
+
+                    // 匹配字段名和类型：第一个单词是字段名，后面跟着类型定义（可能包含括号）
+                    const match = token.match(/^(\w+)\s+([\w\(\)\d,]+)/i);
+                    if (match) {
+                        const fieldName = match[1].toLowerCase();
+                        let typeStr = match[2].trim();
+                        // 如果类型后面还有额外的定义（如 NOT NULL, DEFAULT），截取到第一个空格或逗号之前
+                        const typeEnd = typeStr.search(/\s/);
+                        if (typeEnd !== -1) {
+                            typeStr = typeStr.substring(0, typeEnd);
+                        }
+                        fieldMap[fieldName] = typeStr;
+                    }
                 }
+
                 return fieldMap;
             }
 
-            function convertSql() {
-                if (successTimeout) clearTimeout(successTimeout);
-                if (errorTimeout) clearTimeout(errorTimeout);
-                document.getElementById("errorMsg").style.display = "none";
-                document.getElementById("successMsg").style.display = "none";
-                document.getElementById("formattedSql").value = "";
-                document.getElementById("updateSqlGroup").style.display =
-                    "none";
-                document.getElementById("updateSql").value = "";
-                document.getElementById("copySuccess1").style.display = "none";
-                document.getElementById("copySuccess2").style.display = "none";
-
-                const sqlTemplate = document
-                    .getElementById("sqlTemplate")
-                    .value.trim();
-                if (!sqlTemplate) {
-                    showErrorMessage("❌ 请输入SQL模板！");
-                    return;
+            function splitByCommaNotInParentheses(str) {
+                const parts = [];
+                let current = "";
+                let depth = 0;
+                for (let i = 0; i < str.length; i++) {
+                    const ch = str[i];
+                    if (ch === "(") depth++;
+                    if (ch === ")") depth--;
+                    if (ch === "," && depth === 0) {
+                        parts.push(current);
+                        current = "";
+                    } else {
+                        current += ch;
+                    }
                 }
+                if (current.trim()) parts.push(current);
+                return parts;
+            }
 
-                const separator = ", 执行参数：";
-                const [sqlPart, paramPart] = sqlTemplate.split(separator);
-                const rawSql = sqlPart ? sqlPart.trim() : "";
-                const paramInput = paramPart ? paramPart.trim() : "";
+            // 提取varchar最大长度 (例如 varchar(20) -> 20)
+            function getVarcharMaxLength(typeStr) {
+                const match = typeStr.match(/varchar\((\d+)\)/i);
+                if (match && match[1]) return parseInt(match[1], 10);
+                const matchChar = typeStr.match(/char\((\d+)\)/i);
+                if (matchChar && matchChar[1])
+                    return parseInt(matchChar[1], 10);
+                return null;
+            }
 
-                try {
-                    const sqlLower = rawSql.toLowerCase();
-                    let sqlType = null;
-                    if (sqlLower.startsWith("insert")) sqlType = "INSERT";
-                    else if (sqlLower.startsWith("select")) sqlType = "SELECT";
-                    else if (sqlLower.startsWith("update")) sqlType = "UPDATE";
+            // 校验单个值是否超过字段长度限制 (仅varchar/char)
+            function validateFieldLength(fieldName, rawValue, dbTypeStr) {
+                if (!dbTypeStr)
+                    return { isValid: true, warningMsg: null, actualLen: 0 };
+                const lowerType = dbTypeStr.toLowerCase();
+                if (
+                    !lowerType.includes("varchar") &&
+                    !lowerType.includes("char")
+                )
+                    return { isValid: true, warningMsg: null, actualLen: 0 };
+                if (
+                    rawValue === null ||
+                    rawValue === undefined ||
+                    rawValue === "null"
+                )
+                    return { isValid: true, warningMsg: null, actualLen: 0 };
+                const maxLen = getVarcharMaxLength(dbTypeStr);
+                if (maxLen === null)
+                    return { isValid: true, warningMsg: null, actualLen: 0 };
+                let strValue = String(rawValue);
+                const actualLength = [...strValue].length; // 正确统计中文字符长度
+                if (actualLength > maxLen) {
+                    return {
+                        isValid: false,
+                        warningMsg: `❗超长(实际${actualLength} > 限制${maxLen})`,
+                        actualLen: actualLength,
+                        maxLen: maxLen,
+                    };
+                }
+                return {
+                    isValid: true,
+                    warningMsg: null,
+                    actualLen: actualLength,
+                };
+            }
 
-                    if (!sqlType) {
-                        showErrorMessage(
-                            "仅支持 INSERT / SELECT / UPDATE 类型的SQL，请检查输入",
+            // 生成带类型注释 + 超长警告的INSERT语句 (增强版)
+            function generateInsertWithValidation(
+                tableName,
+                valueMap,
+                rawValueMap,
+                fieldTypeMap,
+                errorCollector,
+            ) {
+                const columns = Object.keys(valueMap);
+                const valuesWithComments = [];
+                for (let i = 0; i < columns.length; i++) {
+                    const col = columns[i];
+                    const formattedVal = valueMap[col];
+                    const rawVal =
+                        rawValueMap[col] !== undefined
+                            ? rawValueMap[col]
+                            : null;
+                    const lowerCol = camelToLower(col);
+                    const dbType = fieldTypeMap[lowerCol] || null;
+                    let comment = dbType ? dbType : "未知字段";
+                    let warningSuffix = "";
+                    if (
+                        dbType &&
+                        rawVal !== null &&
+                        rawVal !== undefined &&
+                        rawVal !== "null"
+                    ) {
+                        const validation = validateFieldLength(
+                            col,
+                            rawVal,
+                            dbType,
                         );
-                        return;
-                    }
-
-                    const paramItems = parseParamsWithType(paramInput);
-                    const placeholderCount = (rawSql.match(/\?/g) || []).length;
-
-                    if (paramItems.length !== placeholderCount) {
-                        showErrorMessage(
-                            `参数数量不匹配！SQL中有 ${placeholderCount} 个?，但输入了 ${paramItems.length} 个参数`,
-                        );
-                        return;
-                    }
-
-                    if (sqlType === "SELECT" || sqlType === "UPDATE") {
-                        const formattedSql = replacePlaceholders(
-                            rawSql,
-                            paramItems,
-                        );
-                        document.getElementById("formattedSql").value =
-                            formattedSql;
-                        const copyResult = autoCopy("formattedSql");
-                        let finalMsg = `${sqlType} 语句处理成功！\n${copyResult.message}`;
-                        copyResult.success
-                            ? showSuccessMessage(finalMsg)
-                            : showErrorMessage(finalMsg);
-                    } else if (sqlType === "INSERT") {
-                        const tableStructure = document
-                            .getElementById("tableStructure")
-                            .value.trim();
-                        const fieldTypeMap =
-                            parseTableStructure(tableStructure);
-                        const sqlParseResult = parseInsertSql(rawSql);
-
-                        const valueMap = {};
-                        let paramIndex = 0;
-                        sqlParseResult.columns.forEach((col, idx) => {
-                            if (
-                                sqlParseResult.placeholderIndexes.includes(idx)
-                            ) {
-                                const param = paramItems[paramIndex++];
-                                valueMap[col] = formatParamByType(
-                                    param.value,
-                                    param.type,
+                        if (!validation.isValid) {
+                            warningSuffix = ` ${validation.warningMsg}`;
+                            if (errorCollector) {
+                                errorCollector.push(
+                                    `❌ 字段「${col}」值「${rawVal}」长度${validation.actualLen} > ${validation.maxLen} (字段类型 ${dbType})`,
                                 );
-                            } else {
-                                valueMap[col] = "NULL";
                             }
-                        });
-
-                        const formattedInsert = generateInsertWithValues(
-                            sqlParseResult.tableName,
-                            valueMap,
-                            fieldTypeMap,
-                        );
-                        document.getElementById("formattedSql").value =
-                            formattedInsert;
-
-                        const primaryKey = Object.keys(valueMap).find(
-                            (col) => col.toLowerCase() === "id",
-                        );
-                        if (!primaryKey) {
-                            showErrorMessage(
-                                "INSERT语句的字段列表中未找到「id」字段，无法生成UPDATE的WHERE条件",
-                            );
-                            return;
                         }
-                        const idValue = valueMap[primaryKey];
-                        const updateSql = generateUpdateWithValues(
-                            sqlParseResult.tableName,
-                            valueMap,
-                            primaryKey,
-                            idValue,
-                        );
-                        document.getElementById("updateSql").value = updateSql;
-                        document.getElementById(
-                            "updateSqlGroup",
-                        ).style.display = "block";
-
-                        const copyResult = autoCopy("formattedSql");
-                        let finalMsg = `✨ INSERT语句处理成功！\n已生成完整INSERT（带字段注释）和UPDATE语句\n${copyResult.message}\n📄 UPDATE语句已生成，可手动复制。`;
-                        copyResult.success
-                            ? showSuccessMessage(finalMsg)
-                            : showErrorMessage(finalMsg);
                     }
-                } catch (e) {
-                    showErrorMessage(`处理失败：${e.message}`);
-                    console.error("转换错误：", e);
+                    const comma = i === columns.length - 1 ? "" : ",";
+                    valuesWithComments.push(
+                        `${formattedVal}${comma} -- ${comment}${warningSuffix}`,
+                    );
                 }
+                const columnsLine = columns.join(",\n    ");
+                const valuesLine = valuesWithComments.join("\n    ");
+                return `INSERT INTO ${tableName} (\n    ${columnsLine}\n) VALUES (\n    ${valuesLine}\n);`;
             }
 
-            function replacePlaceholders(sql, paramItems) {
-                let idx = 0;
-                return sql.replace(/\?/g, () => {
-                    if (idx >= paramItems.length) throw new Error("参数不足");
-                    const param = paramItems[idx++];
-                    return formatParamByType(param.value, param.type);
+            // 生成UPDATE语句（保持不变，但可沿用校验信息, 不过不需要注释）
+            function generateUpdateWithValues(
+                tableName,
+                valueMap,
+                primaryKey,
+                idValue,
+            ) {
+                const setClauses = [];
+                Object.keys(valueMap).forEach((col) => {
+                    if (col.toLowerCase() !== primaryKey.toLowerCase()) {
+                        setClauses.push(`${col} = ${valueMap[col]}`);
+                    }
                 });
+                const setLine = setClauses.join(",\n    ");
+                return `UPDATE ${tableName} SET\n    ${setLine}\nWHERE ${primaryKey} = ${idValue};`;
             }
 
+            // 解析参数（带类型）, 返回 [{ value, type }]
             function parseParamsWithType(paramStr) {
                 if (!paramStr || !paramStr.trim()) return [];
                 let str = paramStr.replace(/，/g, ",");
                 const params = [];
                 let start = 0;
                 let i = 0;
-                let inDoubleQuote = false;
-                let inSingleQuote = false;
+                let inDoubleQuote = false,
+                    inSingleQuote = false;
                 let braceLevel = 0,
                     bracketLevel = 0,
                     parenthesisLevel = 0;
@@ -481,23 +630,19 @@
                                 0,
                                 parenthesisLevel - 1,
                             );
-
                         if (
                             c === "," &&
                             i + 1 < str.length &&
-                            str[i + 1] === " "
+                            str[i + 1] === " " &&
+                            braceLevel === 0 &&
+                            bracketLevel === 0 &&
+                            parenthesisLevel === 0
                         ) {
-                            if (
-                                braceLevel === 0 &&
-                                bracketLevel === 0 &&
-                                parenthesisLevel === 0
-                            ) {
-                                let param = str.substring(start, i);
-                                if (param.trim() !== "") params.push(param);
-                                start = i + 2;
-                                i += 2;
-                                continue;
-                            }
+                            let param = str.substring(start, i);
+                            if (param.trim() !== "") params.push(param);
+                            start = i + 2;
+                            i += 2;
+                            continue;
                         }
                     }
                     i++;
@@ -519,7 +664,6 @@
                 const lastParenClose = param.lastIndexOf(")");
                 let type = null;
                 let value = param;
-
                 if (lastParenOpen !== -1 && lastParenClose > lastParenOpen) {
                     type = param
                         .substring(lastParenOpen + 1, lastParenClose)
@@ -571,26 +715,46 @@
                         }
                     }
                 }
-                return { value, type: type || "Auto" };
+                return { value: value.trim(), type: type || "Auto" };
             }
 
             function formatParamByType(value, type) {
-                if (value.trim().toLowerCase() === "null") return "null";
-                if (type === "String" || type === "Timestamp")
-                    return `'${value}'`;
+                if (value === null || value === undefined) return "null";
+                const v = String(value).trim();
+                if (v.toLowerCase() === "null") return "null";
                 if (
-                    ["Integer", "Long", "Number", "BigDecimal"].includes(type)
+                    type === "String" ||
+                    type === "Timestamp" ||
+                    type === "Date"
+                )
+                    return `'${v.replace(/'/g, "''")}'`;
+                if (
+                    [
+                        "Integer",
+                        "Long",
+                        "Number",
+                        "BigDecimal",
+                        "Double",
+                        "Float",
+                    ].includes(type)
                 ) {
-                    const trimmed = value.trim();
-                    const regex = /^-?\d+(\.\d+)?$/;
-                    if (!regex.test(trimmed))
+                    if (!/^-?\d+(\.\d+)?$/.test(v))
                         throw new Error(
                             `参数值「${value}」标注为${type}类型，但不是有效数字`,
                         );
-                    return trimmed;
+                    return v;
                 }
-                if (/^-?\d+(\.\d+)?$/.test(value.trim())) return value.trim();
-                return `'${value}'`;
+                if (/^-?\d+(\.\d+)?$/.test(v)) return v;
+                return `'${v.replace(/'/g, "''")}'`;
+            }
+
+            function replacePlaceholders(sql, paramItems) {
+                let idx = 0;
+                return sql.replace(/\?/g, () => {
+                    if (idx >= paramItems.length) throw new Error("参数不足");
+                    const param = paramItems[idx++];
+                    return formatParamByType(param.value, param.type);
+                });
             }
 
             function parseInsertSql(sql) {
@@ -627,40 +791,6 @@
                 return { tableName, columns, values, placeholderIndexes };
             }
 
-            // 生成INSERT（终极修复：驼峰转小写匹配）
-            function generateInsertWithValues(
-                tableName,
-                valueMap,
-                fieldTypeMap = {},
-            ) {
-                const columns = Object.keys(valueMap);
-                const values = columns.map((col, index) => {
-                    const value = valueMap[col];
-                    const type = fieldTypeMap[camelToLower(col)] || "未知字段";
-                    const comma = index === columns.length - 1 ? "" : ",";
-                    return `${value}${comma} -- ${type}`;
-                });
-                const columnsLine = columns.join(",\n    ");
-                const valuesLine = values.join("\n    ");
-                return `INSERT INTO ${tableName} (\n    ${columnsLine}\n) VALUES (\n    ${valuesLine}\n);`;
-            }
-
-            function generateUpdateWithValues(
-                tableName,
-                valueMap,
-                primaryKey,
-                idValue,
-            ) {
-                const setClauses = [];
-                Object.keys(valueMap).forEach((col) => {
-                    if (col.toLowerCase() !== primaryKey.toLowerCase()) {
-                        setClauses.push(`${col} = ${valueMap[col]}`);
-                    }
-                });
-                const setLine = setClauses.join(",\n    ");
-                return `UPDATE ${tableName} SET\n    ${setLine}\nWHERE ${primaryKey} = ${idValue};`;
-            }
-
             function parseSqlItems(str, type) {
                 const items = [];
                 let start = 0;
@@ -690,6 +820,152 @@
                 if (result.length === 0)
                     throw new Error(`未解析到有效的${type}列表`);
                 return result;
+            }
+
+            // 主转换函数
+            function convertSql() {
+                if (successTimeout) clearTimeout(successTimeout);
+                if (errorTimeout) clearTimeout(errorTimeout);
+                document.getElementById("errorMsg").style.display = "none";
+                document.getElementById("successMsg").style.display = "none";
+                document.getElementById("formattedSql").value = "";
+                document.getElementById("updateSqlGroup").style.display =
+                    "none";
+                document.getElementById("updateSql").value = "";
+                document.getElementById("copySuccess1").style.display = "none";
+                document.getElementById("copySuccess2").style.display = "none";
+
+                const sqlTemplate = document
+                    .getElementById("sqlTemplate")
+                    .value.trim();
+                if (!sqlTemplate) {
+                    showErrorMessage("❌ 请输入SQL模板！");
+                    return;
+                }
+                const separator = ", 执行参数：";
+                const [sqlPart, paramPart] = sqlTemplate.split(separator);
+                const rawSql = sqlPart ? sqlPart.trim() : "";
+                const paramInput = paramPart ? paramPart.trim() : "";
+                try {
+                    const sqlLower = rawSql.toLowerCase();
+                    let sqlType = null;
+                    if (sqlLower.startsWith("insert")) sqlType = "INSERT";
+                    else if (sqlLower.startsWith("select")) sqlType = "SELECT";
+                    else if (sqlLower.startsWith("update")) sqlType = "UPDATE";
+                    if (!sqlType) {
+                        showErrorMessage(
+                            "仅支持 INSERT / SELECT / UPDATE 类型的SQL，请检查输入",
+                        );
+                        return;
+                    }
+                    const paramItems = parseParamsWithType(paramInput);
+                    const placeholderCount = (rawSql.match(/\?/g) || []).length;
+                    if (paramItems.length !== placeholderCount) {
+                        showErrorMessage(
+                            `参数数量不匹配！SQL中有 ${placeholderCount} 个?，但输入了 ${paramItems.length} 个参数`,
+                        );
+                        return;
+                    }
+                    // SELECT 和 UPDATE 直接替换
+                    if (sqlType === "SELECT" || sqlType === "UPDATE") {
+                        const formattedSql = replacePlaceholders(
+                            rawSql,
+                            paramItems,
+                        );
+                        document.getElementById("formattedSql").value =
+                            formattedSql;
+                        const copyResult = autoCopy("formattedSql");
+                        let finalMsg = `${sqlType} 语句处理成功！\n${copyResult.message}`;
+                        copyResult.success
+                            ? showSuccessMessage(finalMsg)
+                            : showErrorMessage(finalMsg);
+                        return;
+                    }
+                    // ================= INSERT 增强逻辑 =================
+                    if (sqlType === "INSERT") {
+                        const tableStructure = document
+                            .getElementById("tableStructure")
+                            .value.trim();
+                        const fieldTypeMap =
+                            parseTableStructure(tableStructure);
+                        const sqlParseResult = parseInsertSql(rawSql);
+                        const valueMap = {}; // 格式化后的值 (带引号/数字)
+                        const rawValueMap = {}; // 原始参数值（用于长度校验）
+                        let paramIndex = 0;
+                        sqlParseResult.columns.forEach((col, idx) => {
+                            if (
+                                sqlParseResult.placeholderIndexes.includes(idx)
+                            ) {
+                                const param = paramItems[paramIndex++];
+                                const formatted = formatParamByType(
+                                    param.value,
+                                    param.type,
+                                );
+                                valueMap[col] = formatted;
+                                rawValueMap[col] = param.value;
+                            } else {
+                                valueMap[col] = "NULL";
+                                rawValueMap[col] = null;
+                            }
+                        });
+                        const errorCollector = [];
+                        const formattedInsert = generateInsertWithValidation(
+                            sqlParseResult.tableName,
+                            valueMap,
+                            rawValueMap,
+                            fieldTypeMap,
+                            errorCollector,
+                        );
+                        document.getElementById("formattedSql").value =
+                            formattedInsert;
+                        // 生成 UPDATE 语句（基于主键id）
+                        const primaryKey = Object.keys(valueMap).find(
+                            (col) => col.toLowerCase() === "id",
+                        );
+                        if (!primaryKey) {
+                            showErrorMessage(
+                                "⚠️ INSERT语句的字段列表中未找到「id」字段，无法生成UPDATE的WHERE条件，但INSERT已正常生成。",
+                            );
+                            const copyRes = autoCopy("formattedSql");
+                            copyRes.success
+                                ? showSuccessMessage(
+                                      `INSERT已生成，但缺少id字段跳过UPDATE生成。${copyRes.message}`,
+                                  )
+                                : showErrorMessage(copyRes.message);
+                            return;
+                        }
+                        const idRawValue = rawValueMap[primaryKey];
+                        let idFormatted = valueMap[primaryKey];
+                        const updateSql = generateUpdateWithValues(
+                            sqlParseResult.tableName,
+                            valueMap,
+                            primaryKey,
+                            idFormatted,
+                        );
+                        document.getElementById("updateSql").value = updateSql;
+                        document.getElementById(
+                            "updateSqlGroup",
+                        ).style.display = "block";
+                        // 展示超长错误汇总
+                        if (errorCollector.length > 0) {
+                            const errorHtml = `<strong>⚠️ 字段长度校验失败 (${errorCollector.length}个字段超长)</strong><br>${errorCollector.map((e) => `• ${e}`).join("<br>")}<br>🔍 请修正参数值后再执行。`;
+                            showErrorMessage(errorHtml, true);
+                            const copyRes = autoCopy("formattedSql");
+                            if (!copyRes.success)
+                                showErrorMessage(
+                                    errorHtml + "<br>" + copyRes.message,
+                                    true,
+                                );
+                            return;
+                        }
+                        const copyResult = autoCopy("formattedSql");
+                        let finalMsg = `✨ INSERT语句处理成功！\n✅ 已生成完整INSERT（含字段类型及长度校验）和UPDATE语句。\n${copyResult.message}`;
+                        showSuccessMessage(finalMsg);
+                    }
+                } catch (e) {
+                    showErrorMessage(`处理失败：${e.message}`);
+                    console.error("转换错误：", e);
+                }
             }
         </script>
     </body>
