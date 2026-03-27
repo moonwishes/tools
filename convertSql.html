@@ -93,7 +93,13 @@
                 border-color: #3b82f6;
                 box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
             }
+            .button-group {
+                display: flex;
+                gap: 16px;
+                margin: 20px 0;
+            }
             button {
+                flex: 1;
                 background-color: #007bff;
                 border: none;
                 padding: 12px 20px;
@@ -103,13 +109,18 @@
                 cursor: pointer;
                 transition: all 0.2s ease;
                 color: white;
-                width: 100%;
                 box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
             }
             button:hover {
                 background-color: #0056b3;
                 transform: translateY(-1px);
                 box-shadow: 0 6px 12px rgba(0, 123, 255, 0.2);
+            }
+            .clear-btn {
+                background-color: #6c757d;
+            }
+            .clear-btn:hover {
+                background-color: #5a6268;
             }
             .copy-btn {
                 width: auto;
@@ -254,7 +265,12 @@ CREATE TABLE user (
                 ></textarea>
             </div>
 
-            <button onclick="convertSql()">✨ 替换占位符 & 智能校验</button>
+            <div class="button-group">
+                <button onclick="convertSql()">✨ 替换占位符</button>
+                <button class="clear-btn" onclick="clearAll()">
+                    🗑️ 清空所有
+                </button>
+            </div>
 
             <div class="output-group">
                 <label for="formattedSql">✅ 替换后的完整SQL语句</label>
@@ -396,6 +412,7 @@ CREATE TABLE user (
                 }
             }
 
+            // ================= 增强的表结构解析 =================
             function parseTableStructure(sql) {
                 if (!sql) return {};
                 const fieldMap = {};
@@ -478,8 +495,7 @@ CREATE TABLE user (
                 if (current.trim()) parts.push(current);
                 return parts;
             }
-
-            // 提取varchar最大长度 (例如 varchar(20) -> 20)
+            // ================ 原有功能函数 ================
             function getVarcharMaxLength(typeStr) {
                 const match = typeStr.match(/varchar\((\d+)\)/i);
                 if (match && match[1]) return parseInt(match[1], 10);
@@ -489,7 +505,6 @@ CREATE TABLE user (
                 return null;
             }
 
-            // 校验单个值是否超过字段长度限制 (仅varchar/char)
             function validateFieldLength(fieldName, rawValue, dbTypeStr) {
                 if (!dbTypeStr)
                     return { isValid: true, warningMsg: null, actualLen: 0 };
@@ -509,7 +524,7 @@ CREATE TABLE user (
                 if (maxLen === null)
                     return { isValid: true, warningMsg: null, actualLen: 0 };
                 let strValue = String(rawValue);
-                const actualLength = [...strValue].length; // 正确统计中文字符长度
+                const actualLength = [...strValue].length;
                 if (actualLength > maxLen) {
                     return {
                         isValid: false,
@@ -525,7 +540,6 @@ CREATE TABLE user (
                 };
             }
 
-            // 生成带类型注释 + 超长警告的INSERT语句 (增强版)
             function generateInsertWithValidation(
                 tableName,
                 valueMap,
@@ -576,7 +590,6 @@ CREATE TABLE user (
                 return `INSERT INTO ${tableName} (\n    ${columnsLine}\n) VALUES (\n    ${valuesLine}\n);`;
             }
 
-            // 生成UPDATE语句（保持不变，但可沿用校验信息, 不过不需要注释）
             function generateUpdateWithValues(
                 tableName,
                 valueMap,
@@ -593,7 +606,6 @@ CREATE TABLE user (
                 return `UPDATE ${tableName} SET\n    ${setLine}\nWHERE ${primaryKey} = ${idValue};`;
             }
 
-            // 解析参数（带类型）, 返回 [{ value, type }]
             function parseParamsWithType(paramStr) {
                 if (!paramStr || !paramStr.trim()) return [];
                 let str = paramStr.replace(/，/g, ",");
@@ -866,7 +878,6 @@ CREATE TABLE user (
                         );
                         return;
                     }
-                    // SELECT 和 UPDATE 直接替换
                     if (sqlType === "SELECT" || sqlType === "UPDATE") {
                         const formattedSql = replacePlaceholders(
                             rawSql,
@@ -881,7 +892,6 @@ CREATE TABLE user (
                             : showErrorMessage(finalMsg);
                         return;
                     }
-                    // ================= INSERT 增强逻辑 =================
                     if (sqlType === "INSERT") {
                         const tableStructure = document
                             .getElementById("tableStructure")
@@ -889,8 +899,8 @@ CREATE TABLE user (
                         const fieldTypeMap =
                             parseTableStructure(tableStructure);
                         const sqlParseResult = parseInsertSql(rawSql);
-                        const valueMap = {}; // 格式化后的值 (带引号/数字)
-                        const rawValueMap = {}; // 原始参数值（用于长度校验）
+                        const valueMap = {};
+                        const rawValueMap = {};
                         let paramIndex = 0;
                         sqlParseResult.columns.forEach((col, idx) => {
                             if (
@@ -918,7 +928,6 @@ CREATE TABLE user (
                         );
                         document.getElementById("formattedSql").value =
                             formattedInsert;
-                        // 生成 UPDATE 语句（基于主键id）
                         const primaryKey = Object.keys(valueMap).find(
                             (col) => col.toLowerCase() === "id",
                         );
@@ -934,8 +943,7 @@ CREATE TABLE user (
                                 : showErrorMessage(copyRes.message);
                             return;
                         }
-                        const idRawValue = rawValueMap[primaryKey];
-                        let idFormatted = valueMap[primaryKey];
+                        const idFormatted = valueMap[primaryKey];
                         const updateSql = generateUpdateWithValues(
                             sqlParseResult.tableName,
                             valueMap,
@@ -946,7 +954,6 @@ CREATE TABLE user (
                         document.getElementById(
                             "updateSqlGroup",
                         ).style.display = "block";
-                        // 展示超长错误汇总
                         if (errorCollector.length > 0) {
                             const errorHtml = `<strong>⚠️ 字段长度校验失败 (${errorCollector.length}个字段超长)</strong><br>${errorCollector.map((e) => `• ${e}`).join("<br>")}<br>🔍 请修正参数值后再执行。`;
                             showErrorMessage(errorHtml, true);
@@ -966,6 +973,29 @@ CREATE TABLE user (
                     showErrorMessage(`处理失败：${e.message}`);
                     console.error("转换错误：", e);
                 }
+            }
+
+            // 清空所有输入框和输出框，重置状态
+            function clearAll() {
+                // 清空输入框
+                document.getElementById("sqlTemplate").value = "";
+                document.getElementById("tableStructure").value = "";
+                // 清空输出框
+                document.getElementById("formattedSql").value = "";
+                document.getElementById("updateSql").value = "";
+                // 隐藏UPDATE组
+                document.getElementById("updateSqlGroup").style.display =
+                    "none";
+                // 隐藏消息框
+                document.getElementById("errorMsg").style.display = "none";
+                document.getElementById("successMsg").style.display = "none";
+                document.getElementById("copySuccess1").style.display = "none";
+                document.getElementById("copySuccess2").style.display = "none";
+                // 清除计时器
+                if (successTimeout) clearTimeout(successTimeout);
+                if (errorTimeout) clearTimeout(errorTimeout);
+                successTimeout = null;
+                errorTimeout = null;
             }
         </script>
     </body>
