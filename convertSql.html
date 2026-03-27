@@ -3,7 +3,7 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>SQL 占位符替换工具 - 完整保留参数空格</title>
+        <title>SQL 占位符替换工具</title>
         <style>
             * {
                 margin: 0;
@@ -16,7 +16,7 @@
                 background-color: #f5f5f5;
             }
             .container {
-                max-width: 1000px;
+                max-width: 1200px;
                 margin: 0 auto;
                 background: white;
                 padding: 25px;
@@ -45,9 +45,9 @@
                 border: 1px solid #ddd;
                 border-radius: 4px;
                 resize: vertical;
-                font-size: 14px;
-                line-height: 1.5;
-                min-height: 150px;
+                font-size: 13px;
+                line-height: 1.4;
+                min-height: 120px;
             }
             button {
                 display: block;
@@ -127,21 +127,15 @@
     </head>
     <body>
         <div class="container">
-            <h1>SQL 占位符替换工具 ✨ 保留参数原始空格</h1>
+            <h1>SQL 占位符替换工具</h1>
             <div class="error" id="errorMsg"></div>
             <div class="success" id="successMsg"></div>
-
             <div class="sql-type-tip">
                 📌 支持三种SQL类型：<br />
                 1. SELECT语句：仅替换占位符生成完整查询语句；<br />
                 2. UPDATE语句：仅替换占位符生成完整更新语句；<br />
-                3. INSERT语句：替换占位符并生成UPDATE语句。<br />
-                ⚡ 参数列表使用 <strong>", 执行参数："</strong> 分隔，每个参数用
-                <strong>", "</strong> 分隔。<br />
-                💡
-                <strong
-                    >若需保留参数值的前后空格，请确保值本身包含空格，无需引号；工具会完整保留括号前的所有字符（包括空格）。</strong
-                >
+                3.
+                INSERT语句：替换占位符+生成UPDATE+字段类型注释（大小写全自动兼容）。<br />
             </div>
 
             <div class="form-group">
@@ -156,6 +150,16 @@
                 ></textarea>
             </div>
 
+            <div class="form-group">
+                <label for="tableStructure">
+                    表结构（可选，INSERT专用，生成字段类型注释）
+                </label>
+                <textarea
+                    id="tableStructure"
+                    placeholder="示例：CREATE TABLE user (id varchar(20) NOT NULL, deptName varchar(50), json_data json, create_time datetime);"
+                ></textarea>
+            </div>
+
             <button onclick="convertSql()">🚀 替换占位符</button>
 
             <div class="output-group">
@@ -165,7 +169,7 @@
                     class="copy-btn"
                     onclick="copyToClipboard('formattedSql', 'copySuccess1')"
                 >
-                    📋 手动复制
+                    📋 复制
                 </button>
                 <div class="copy-success" id="copySuccess1">✅ 复制成功！</div>
             </div>
@@ -179,7 +183,7 @@
                     class="copy-btn"
                     onclick="copyToClipboard('updateSql', 'copySuccess2')"
                 >
-                    📋 手动复制
+                    📋 复制
                 </button>
                 <div class="copy-success" id="copySuccess2">✅ 复制成功！</div>
             </div>
@@ -188,6 +192,11 @@
         <script>
             let successTimeout = null;
             let errorTimeout = null;
+
+            // 驼峰转全小写（终极修复：baoMiBZ → baomibz）
+            function camelToLower(str) {
+                return str.replace(/([A-Z])/g, (g) => g.toLowerCase()).trim();
+            }
 
             function showSuccessMessage(message) {
                 const successDiv = document.getElementById("successMsg");
@@ -276,6 +285,31 @@
                 }
             }
 
+            // 超强表结构解析
+            function parseTableStructure(sql) {
+                if (!sql) return {};
+                const fieldMap = {};
+                let s = sql.replace(/\n/g, " ").replace(/\s+/g, " ");
+                const m = s.match(/\(([\s\S]*)\)/i);
+                if (!m) return fieldMap;
+                const body = m[1];
+                const lines = body.split(/,\s*(?![^()]*\))/);
+
+                for (let line of lines) {
+                    line = line.trim().replace(/--.*/, "").trim();
+                    if (
+                        !line ||
+                        line.startsWith("CONSTRAINT") ||
+                        line.startsWith("PRIMARY")
+                    )
+                        continue;
+                    const reg = /^(\w+)\s+([\w\(\)]+)/i;
+                    const fm = line.match(reg);
+                    if (fm) fieldMap[fm[1].toLowerCase()] = fm[2];
+                }
+                return fieldMap;
+            }
+
             function convertSql() {
                 if (successTimeout) clearTimeout(successTimeout);
                 if (errorTimeout) clearTimeout(errorTimeout);
@@ -338,15 +372,12 @@
                             ? showSuccessMessage(finalMsg)
                             : showErrorMessage(finalMsg);
                     } else if (sqlType === "INSERT") {
+                        const tableStructure = document
+                            .getElementById("tableStructure")
+                            .value.trim();
+                        const fieldTypeMap =
+                            parseTableStructure(tableStructure);
                         const sqlParseResult = parseInsertSql(rawSql);
-                        if (
-                            sqlParseResult.placeholderIndexes.length !==
-                            placeholderCount
-                        ) {
-                            throw new Error(
-                                `INSERT语句解析异常：解析出 ${sqlParseResult.placeholderIndexes.length} 个?，实际SQL中有 ${placeholderCount} 个?`,
-                            );
-                        }
 
                         const valueMap = {};
                         let paramIndex = 0;
@@ -367,6 +398,7 @@
                         const formattedInsert = generateInsertWithValues(
                             sqlParseResult.tableName,
                             valueMap,
+                            fieldTypeMap,
                         );
                         document.getElementById("formattedSql").value =
                             formattedInsert;
@@ -393,7 +425,7 @@
                         ).style.display = "block";
 
                         const copyResult = autoCopy("formattedSql");
-                        let finalMsg = `✨ INSERT语句处理成功！\n已生成完整INSERT和UPDATE语句（UPDATE条件：${primaryKey}=${idValue}）\n${copyResult.message}\n📄 UPDATE语句已生成，可手动复制。`;
+                        let finalMsg = `✨ INSERT语句处理成功！\n已生成完整INSERT（带字段注释）和UPDATE语句\n${copyResult.message}\n📄 UPDATE语句已生成，可手动复制。`;
                         copyResult.success
                             ? showSuccessMessage(finalMsg)
                             : showErrorMessage(finalMsg);
@@ -413,10 +445,8 @@
                 });
             }
 
-            // 参数解析：使用 ", " 分隔，保留原始空格
             function parseParamsWithType(paramStr) {
                 if (!paramStr || !paramStr.trim()) return [];
-
                 let str = paramStr.replace(/，/g, ",");
                 const params = [];
                 let start = 0;
@@ -430,12 +460,10 @@
                 while (i < str.length) {
                     const c = str[i];
                     const prevC = i > 0 ? str[i - 1] : "";
-
                     if (prevC === "\\") {
                         i++;
                         continue;
                     }
-
                     if (c === '"' && !inSingleQuote)
                         inDoubleQuote = !inDoubleQuote;
                     else if (c === "'" && !inDoubleQuote)
@@ -476,8 +504,6 @@
                 }
                 let lastParam = str.substring(start);
                 if (lastParam.trim() !== "") params.push(lastParam);
-
-                // 兼容旧格式
                 if (params.length === 0 && str.includes(",")) {
                     return str
                         .split(",")
@@ -488,9 +514,7 @@
                 return params.map((p) => extractParamAndType(p));
             }
 
-            // 改进版：提取参数值和类型，精确保留引号内的首尾空格，且无引号时保留括号前的所有字符（包括空格）
             function extractParamAndType(param) {
-                // 先尝试匹配类型括号，使用 lastIndexOf 避免正则消耗末尾空格
                 const lastParenOpen = param.lastIndexOf("(");
                 const lastParenClose = param.lastIndexOf(")");
                 let type = null;
@@ -501,8 +525,6 @@
                         .substring(lastParenOpen + 1, lastParenClose)
                         .trim();
                     value = param.substring(0, lastParenOpen);
-
-                    // 检查值是否被引号包裹（允许前后有空白）
                     let trimmedValue = value.trim();
                     if (
                         (trimmedValue.startsWith('"') &&
@@ -510,9 +532,7 @@
                         (trimmedValue.startsWith("'") &&
                             trimmedValue.endsWith("'"))
                     ) {
-                        // 有引号：提取引号内内容（保留内部所有空格）
                         const quote = trimmedValue[0];
-                        // 找到值中第一个引号和最后一个引号之间的内容
                         const firstQuoteIdx = value.indexOf(quote);
                         const lastQuoteIdx = value.lastIndexOf(quote);
                         if (
@@ -524,15 +544,10 @@
                                 lastQuoteIdx,
                             );
                         } else {
-                            // 降级：直接去掉首尾引号
                             value = trimmedValue.slice(1, -1);
                         }
-                    } else {
-                        // 无引号：保留括号前的所有字符（包括前后空格），不做任何 trim
-                        // 直接使用 value，不做修改
                     }
                 } else {
-                    // 没有类型括号，直接处理值
                     let trimmedValue = value.trim();
                     if (
                         (trimmedValue.startsWith('"') &&
@@ -554,48 +569,36 @@
                         } else {
                             value = trimmedValue.slice(1, -1);
                         }
-                    } else {
-                        // 无引号无类型，保留原值（包括空格），不做任何 trim
                     }
                 }
-
                 return { value, type: type || "Auto" };
             }
 
             function formatParamByType(value, type) {
-                // 处理 null
                 if (value.trim().toLowerCase() === "null") return "null";
-                if (type === "String") return `'${value}'`; // 直接使用原始值，保留空格
+                if (type === "String" || type === "Timestamp")
+                    return `'${value}'`;
                 if (
-                    type === "Integer" ||
-                    type === "Long" ||
-                    type === "Number"
+                    ["Integer", "Long", "Number", "BigDecimal"].includes(type)
                 ) {
                     const trimmed = value.trim();
-                    const regex =
-                        type === "Integer" || type === "Long"
-                            ? /^-?\d+$/
-                            : /^-?\d+(\.\d+)?$/;
+                    const regex = /^-?\d+(\.\d+)?$/;
                     if (!regex.test(trimmed))
                         throw new Error(
                             `参数值「${value}」标注为${type}类型，但不是有效数字`,
                         );
                     return trimmed;
                 }
-                // Auto 类型：若看起来像数字则不加引号，否则加引号（保留原始空格）
                 if (/^-?\d+(\.\d+)?$/.test(value.trim())) return value.trim();
                 return `'${value}'`;
             }
 
-            // 其他辅助函数保持不变
             function parseInsertSql(sql) {
                 const lowerSql = sql
                     .toLowerCase()
                     .replace(/;/g, "")
                     .replace(/\s+/g, " ");
-                const tableMatch = lowerSql.match(
-                    /insert into\s+(\w+)\s*(?:as\s*\w+)?/,
-                );
+                const tableMatch = lowerSql.match(/insert into\s+([\w.]+)/);
                 if (!tableMatch) throw new Error("无法识别INSERT语句的表名");
                 const tableName = tableMatch[1];
                 const rawContentMatch = sql.match(
@@ -624,11 +627,21 @@
                 return { tableName, columns, values, placeholderIndexes };
             }
 
-            function generateInsertWithValues(tableName, valueMap) {
+            // 生成INSERT（终极修复：驼峰转小写匹配）
+            function generateInsertWithValues(
+                tableName,
+                valueMap,
+                fieldTypeMap = {},
+            ) {
                 const columns = Object.keys(valueMap);
-                const values = columns.map((col) => valueMap[col]);
+                const values = columns.map((col, index) => {
+                    const value = valueMap[col];
+                    const type = fieldTypeMap[camelToLower(col)] || "未知字段";
+                    const comma = index === columns.length - 1 ? "" : ",";
+                    return `${value}${comma} -- ${type}`;
+                });
                 const columnsLine = columns.join(",\n    ");
-                const valuesLine = values.join(",\n    ");
+                const valuesLine = values.join("\n    ");
                 return `INSERT INTO ${tableName} (\n    ${columnsLine}\n) VALUES (\n    ${valuesLine}\n);`;
             }
 
