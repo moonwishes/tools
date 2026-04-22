@@ -213,12 +213,13 @@
     <body>
         <div class="container">
             <div class="title-wrap">
-                <h1>🔧 SQL 占位符替换工具</h1>
+                <h3>🔧 SQL 占位符替换工具</h1>
             </div>
             <div class="error" id="errorMsg"></div>
             <div class="success" id="successMsg"></div>
             <div class="sql-type-tip">
-                📌 <strong>智能替换 + 字段长度校验（INSERT专属）</strong><br />
+                📌
+                <strong>智能替换 + 字段长度校验（INSERT专属）</strong><br />
                 ✅ SELECT / UPDATE : 直接替换占位符，生成完整SQL。<br />
                 ✅ INSERT : 替换占位符 + 自动生成 UPDATE语句 +
                 <span
@@ -229,8 +230,6 @@
                     "
                     >根据表结构校验VARCHAR长度</span
                 >，超长字段自动标记 ❌超长 并展示错误列表。<br />
-                💡 提示：表结构越完整，校验越精准（支持
-                varchar(n)、numeric、timestamp等）。字段名大小写自动匹配。
             </div>
 
             <div class="form-group">
@@ -239,7 +238,7 @@
                     <i>(INSERT / SELECT / UPDATE)</i></label
                 >
                 <textarea
-                    id="sqlTemplate"
+                    id="sqlTemplate" rows="6"
                     placeholder="示例(INSERT带超长校验)：INSERT INTO user (id, name, remark) VALUES (?, ?, ?), 执行参数：155699555319834624011(String), 张三(String), 测试备注(String)
 
 示例(SELECT)：SELECT * FROM product WHERE code = ? AND status = ?, 执行参数：P10086(String), 1(Integer)
@@ -266,7 +265,7 @@ CREATE TABLE user (
             </div>
 
             <div class="button-group">
-                <button onclick="convertSql()">✨ 替换占位符</button>
+                <button onclick="convertSql()">✨ 替换占位符+复制</button>
                 <button class="clear-btn" onclick="clearAll()">
                     🗑️ 清空所有
                 </button>
@@ -277,7 +276,7 @@ CREATE TABLE user (
                 <textarea
                     id="formattedSql"
                     readonly
-                    rows="6"
+                    rows="4"
                     style="font-family: monospace"
                 ></textarea>
                 <button
